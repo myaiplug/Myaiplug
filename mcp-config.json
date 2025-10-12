@@ -1,0 +1,60 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/runner/work/Myaiplug/Myaiplug"
+      ],
+      "description": "Provides secure file system operations for reading, writing, and managing project files"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<your_github_token_here>"
+      },
+      "description": "Enables GitHub operations like managing repositories, issues, PRs, and code reviews"
+    },
+    "npm": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-npm"],
+      "description": "Manages npm packages and dependencies for the JavaScript project"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Provides persistent memory across sessions for storing project context and preferences"
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "description": "Enables browser automation for testing the web UI and capturing screenshots"
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "Provides structured reasoning for complex problem-solving and planning"
+    }
+  },
+  "metadata": {
+    "project": "MyAiPlug",
+    "description": "MCP server configuration for the MyAiPlug audio mini-studio project",
+    "version": "1.0.0",
+    "created": "2025-10-12",
+    "notes": [
+      "This configuration includes essential MCP servers for development workflow",
+      "Replace <your_github_token_here> with your actual GitHub Personal Access Token",
+      "For Claude Desktop, copy this content to ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)",
+      "For Windows, use %APPDATA%\\Claude\\claude_desktop_config.json",
+      "For Linux, use ~/.config/Claude/claude_desktop_config.json",
+      "Restart Claude Desktop after making changes"
+    ],
+    "recommendedServers": {
+      "essential": ["filesystem", "github", "memory"],
+      "development": ["npm", "sequential-thinking"],
+      "testing": ["puppeteer"]
+    }
+  }
+}
