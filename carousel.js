@@ -1,1 +1,0 @@
-// Carousel handled via prev/next in core.js for v1

@@ -1,7 +1,9 @@
 import Hero from '@/sections/Hero';
 import Features from '@/sections/Features';
 import MiniStudio from '@/components/MiniStudio';
+import Testimonials from '@/sections/Testimonials';
 import Pricing from '@/sections/Pricing';
+import CTA from '@/sections/CTA';
 
 export default function Home() {
   return (
@@ -9,7 +11,9 @@ export default function Home() {
       <Hero />
       <Features />
       <MiniStudio />
+      <Testimonials />
       <Pricing />
+      <CTA />
       
       {/* Footer */}
       <footer className="border-t border-white/10 py-12 px-6 mt-20">
