@@ -20,15 +20,20 @@ This repository contains a lite Web Audio mini-studio with various audio effects
 
 ### 🤖 MCP Servers & AI Agent Chaining
 
-**New!** This project now includes comprehensive guides for using MCP (Model Context Protocol) servers and AI agent chaining to supercharge your development workflow:
+**New!** This project now includes comprehensive guides for using MCP (Model Context Protocol) servers and AI agent chaining to supercharge your development workflow.
+
+#### 📚 Documentation Hub
+- **[📖 MCP Documentation Index](./MCP_INDEX.md)** - Complete navigation guide (start here!)
 
 #### Quick Start
-- **[MCP Quick Start Guide](./MCP_QUICKSTART.md)** - Get up and running in 5 minutes
-- **[mcp-config.json](./mcp-config.json)** - Ready-to-use MCP server configuration
+- **[🚀 MCP Quick Start Guide](./MCP_QUICKSTART.md)** - Get up and running in 5 minutes
+- **[⚙️ mcp-config.json](./mcp-config.json)** - Ready-to-use MCP server configuration
 
 #### Detailed Documentation
-- **[MCP Guide](./MCP_GUIDE.md)** - Complete guide to MCP servers, setup, and configuration
-- **[Agent Chaining Guide](./AGENT_CHAINING.md)** - Learn how to chain AI agents for complex tasks
+- **[📘 MCP Guide](./MCP_GUIDE.md)** - Complete guide to MCP servers, setup, and configuration
+- **[🔗 Agent Chaining Guide](./AGENT_CHAINING.md)** - Learn how to chain AI agents for complex tasks
+- **[💡 Agent Examples](./AGENT_EXAMPLES.md)** - Ready-to-use prompts for common tasks
+- **[📊 Workflows](./WORKFLOWS.md)** - Visual workflow patterns and diagrams
 
 #### What You Can Do
 - ✅ Automate file operations with Filesystem MCP Server
