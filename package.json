@@ -1,0 +1,31 @@
+{
+  "name": "myaiplug",
+  "version": "1.0.0",
+  "description": "Lite Web Audio demos (no uploads). Order: Warmth → Stereo Widener → HalfScrew → reTUNE 432 → EQ3 → Reverb Lite. - A/B toggles dry vs processed loop - Arrows/dots to change module - Replace /assets/loops/*.wav with your loops (same filenames)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "@types/three": "^0.180.0",
+    "autoprefixer": "^10.4.21",
+    "framer-motion": "^12.23.24",
+    "gsap": "^3.13.0",
+    "next": "^14.2.33",
+    "postcss": "^8.5.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^4.1.14",
+    "three": "^0.180.0",
+    "typescript": "^5.9.3"
+  }
+}
