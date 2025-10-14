@@ -28,15 +28,19 @@ export default function Hero() {
             </span>
           </motion.div>
 
-          {/* Main Heading */}
+          {/* Main Heading with small brand label above NoDAW */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.8 }}
             className="font-display text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight"
           >
-            MyAiPlug™{' '}
-            <span className="gradient-text">NoDAW</span>
+            <span className="relative inline-block align-top">
+              <span className="absolute -top-4 md:-top-5 left-0 text-[10px] md:text-[11px] font-black tracking-tight leading-none uppercase text-white/90">
+                MyAiPlug™
+              </span>
+              <span className="gradient-text block">NoDAW</span>
+            </span>
           </motion.h1>
 
           {/* Subheading */}

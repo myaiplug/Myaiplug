@@ -10,7 +10,7 @@ export default function Home() {
     <main className="min-h-screen">
       <Hero />
       <Features />
-      <NoDAW Demo />
+  {/* NoDAW Demo section placeholder or component goes here */}
       <Testimonials />
       <Pricing />
       <CTA />
