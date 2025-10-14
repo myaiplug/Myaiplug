@@ -2,6 +2,7 @@ import Hero from '@/sections/Hero';
 import Features from '@/sections/Features';
 import MiniStudio from '@/components/MiniStudio';
 import Testimonials from '@/sections/Testimonials';
+import Trust from '@/sections/Trust';
 import Pricing from '@/sections/Pricing';
 import CTA from '@/sections/CTA';
 
@@ -25,6 +26,7 @@ export default function Home() {
         </div>
       </section>
       <Testimonials />
+  <Trust />
       <Pricing />
       <CTA />
       

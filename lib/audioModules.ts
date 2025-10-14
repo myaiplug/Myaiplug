@@ -1,7 +1,7 @@
 // Audio Modules - Migrated from existing vanilla JS modules
 import { AudioModule } from './audioEngine';
 
-export function createWarmthModule(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createWarmthModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const lowshelf = ctx.createBiquadFilter();
   lowshelf.type = 'lowshelf';
   lowshelf.frequency.value = 220;
@@ -16,20 +16,26 @@ export function createWarmthModule(ctx: AudioContext, connectFX: (node: AudioNod
   shaper.curve = curve;
   shaper.oversample = '2x';
 
-  connectFX(lowshelf);
-  lowshelf.connect(shaper).connect(ctx.destination);
+  // chain: IN -> lowshelf -> shaper -> OUT
+  connectIn(lowshelf);
+  lowshelf.connect(shaper);
+  connectOut(shaper);
 
   return {
     name: 'Warmth',
     info: 'Add body & gentle harmonics',
-    fxLoop: '/assets/loops/warmth_fx.wav',
     params: [
       {
         label: 'Warmth',
         min: 0,
         max: 10,
         value: 4,
-        oninput: (v) => { lowshelf.gain.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          lowshelf.gain.cancelScheduledValues(t);
+          lowshelf.gain.setValueAtTime(lowshelf.gain.value, t);
+          lowshelf.gain.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
     ],
     presets: [
@@ -40,7 +46,7 @@ export function createWarmthModule(ctx: AudioContext, connectFX: (node: AudioNod
   };
 }
 
-export function createWidenerModule(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createWidenerModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const splitter = ctx.createChannelSplitter(2);
   const merger = ctx.createChannelMerger(2);
   const delayR = ctx.createDelay();
@@ -50,20 +56,27 @@ export function createWidenerModule(ctx: AudioContext, connectFX: (node: AudioNo
   gainL.gain.value = 1;
   gainR.gain.value = 1;
 
-  connectFX(splitter);
+  connectIn(splitter);
   splitter.connect(gainL, 0);
   gainL.connect(merger, 0, 0);
   splitter.connect(delayR, 1);
   delayR.connect(gainR).connect(merger, 0, 1);
-  merger.connect(ctx.destination);
+  connectOut(merger);
 
   let width = 0.5;
   let balance = 0.0;
 
   function update() {
-    delayR.delayTime.value = 0.0002 + width * 0.0018;
-    gainL.gain.value = 1 - Math.max(0, balance);
-    gainR.gain.value = 1 + Math.min(0, balance);
+    const t = ctx.currentTime;
+    delayR.delayTime.cancelScheduledValues(t);
+    delayR.delayTime.setValueAtTime(delayR.delayTime.value, t);
+    delayR.delayTime.linearRampToValueAtTime(0.0002 + width * 0.0018, t + 0.02);
+    gainL.gain.cancelScheduledValues(t);
+    gainL.gain.setValueAtTime(gainL.gain.value, t);
+    gainL.gain.linearRampToValueAtTime(1 - Math.max(0, balance), t + 0.02);
+    gainR.gain.cancelScheduledValues(t);
+    gainR.gain.setValueAtTime(gainR.gain.value, t);
+    gainR.gain.linearRampToValueAtTime(1 + Math.min(0, balance), t + 0.02);
   }
   update();
 
@@ -94,7 +107,7 @@ export function createWidenerModule(ctx: AudioContext, connectFX: (node: AudioNo
   };
 }
 
-export function createEQ3Module(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createEQ3Module(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const low = ctx.createBiquadFilter();
   low.type = 'lowshelf';
   low.frequency.value = 120;
@@ -111,8 +124,9 @@ export function createEQ3Module(ctx: AudioContext, connectFX: (node: AudioNode) 
   air.frequency.value = 8000;
   air.gain.value = 0;
 
-  connectFX(low);
-  low.connect(mid).connect(air).connect(ctx.destination);
+  connectIn(low);
+  low.connect(mid).connect(air);
+  connectOut(air);
 
   return {
     name: 'EQ Lite (3‑Band)',
@@ -123,21 +137,36 @@ export function createEQ3Module(ctx: AudioContext, connectFX: (node: AudioNode) 
         min: -12,
         max: 12,
         value: 0,
-        oninput: (v) => { low.gain.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          low.gain.cancelScheduledValues(t);
+          low.gain.setValueAtTime(low.gain.value, t);
+          low.gain.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
       {
         label: 'Mid',
         min: -12,
         max: 12,
         value: 0,
-        oninput: (v) => { mid.gain.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          mid.gain.cancelScheduledValues(t);
+          mid.gain.setValueAtTime(mid.gain.value, t);
+          mid.gain.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
       {
         label: 'Air',
         min: -12,
         max: 12,
         value: 0,
-        oninput: (v) => { air.gain.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          air.gain.cancelScheduledValues(t);
+          air.gain.setValueAtTime(air.gain.value, t);
+          air.gain.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
     ],
     presets: [
@@ -148,7 +177,7 @@ export function createEQ3Module(ctx: AudioContext, connectFX: (node: AudioNode) 
   };
 }
 
-export function createReverbModule(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createReverbModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const delay = ctx.createDelay();
   delay.delayTime.value = 0.18;
   const fb = ctx.createGain();
@@ -157,8 +186,9 @@ export function createReverbModule(ctx: AudioContext, connectFX: (node: AudioNod
   const mix = ctx.createGain();
   mix.gain.value = 0.2;
 
-  connectFX(delay);
-  delay.connect(mix).connect(ctx.destination);
+  connectIn(delay);
+  delay.connect(mix);
+  connectOut(mix);
 
   return {
     name: 'Reverb Lite',
@@ -169,14 +199,24 @@ export function createReverbModule(ctx: AudioContext, connectFX: (node: AudioNod
         min: 0,
         max: 1,
         value: 0.2,
-        oninput: (v) => { mix.gain.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          mix.gain.cancelScheduledValues(t);
+          mix.gain.setValueAtTime(mix.gain.value, t);
+          mix.gain.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
       {
         label: 'Room',
         min: 0.05,
         max: 0.5,
         value: 0.18,
-        oninput: (v) => { delay.delayTime.value = v; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          delay.delayTime.cancelScheduledValues(t);
+          delay.delayTime.setValueAtTime(delay.delayTime.value, t);
+          delay.delayTime.linearRampToValueAtTime(v, t + 0.03);
+        },
       },
     ],
     presets: [
@@ -189,11 +229,11 @@ export function createReverbModule(ctx: AudioContext, connectFX: (node: AudioNod
 
 // Note: HalfScrew and reTUNE modules would require more complex DSP
 // For now, creating placeholder modules
-export function createHalfscrewModule(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createHalfscrewModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const gain = ctx.createGain();
   gain.gain.value = 0.8;
-  connectFX(gain);
-  gain.connect(ctx.destination);
+  connectIn(gain);
+  connectOut(gain);
 
   return {
     name: 'HalfScrew',
@@ -204,7 +244,13 @@ export function createHalfscrewModule(ctx: AudioContext, connectFX: (node: Audio
         min: 0,
         max: 10,
         value: 5,
-        oninput: (v) => { gain.gain.value = 0.5 + (v / 10) * 0.5; },
+        oninput: (v) => {
+          const t = ctx.currentTime;
+          const target = 0.5 + (v / 10) * 0.5;
+          gain.gain.cancelScheduledValues(t);
+          gain.gain.setValueAtTime(gain.gain.value, t);
+          gain.gain.linearRampToValueAtTime(target, t + 0.02);
+        },
       },
     ],
     presets: [
@@ -215,11 +261,11 @@ export function createHalfscrewModule(ctx: AudioContext, connectFX: (node: Audio
   };
 }
 
-export function createRetuneModule(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule {
+export function createRetuneModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const gain = ctx.createGain();
   gain.gain.value = 1.0;
-  connectFX(gain);
-  gain.connect(ctx.destination);
+  connectIn(gain);
+  connectOut(gain);
 
   return {
     name: 'reTUNE 432',
@@ -241,13 +287,13 @@ export function createRetuneModule(ctx: AudioContext, connectFX: (node: AudioNod
   };
 }
 
-export function getAllModules(ctx: AudioContext, connectFX: (node: AudioNode) => void): AudioModule[] {
+export function getAllModules(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule[] {
   return [
-    createWarmthModule(ctx, connectFX),
-    createWidenerModule(ctx, connectFX),
-    createHalfscrewModule(ctx, connectFX),
-    createRetuneModule(ctx, connectFX),
-    createEQ3Module(ctx, connectFX),
-    createReverbModule(ctx, connectFX),
+    createWarmthModule(ctx, connectIn, connectOut),
+    createWidenerModule(ctx, connectIn, connectOut),
+    createHalfscrewModule(ctx, connectIn, connectOut),
+    createRetuneModule(ctx, connectIn, connectOut),
+    createEQ3Module(ctx, connectIn, connectOut),
+    createReverbModule(ctx, connectIn, connectOut),
   ];
 }

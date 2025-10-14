@@ -21,7 +21,11 @@ export default function MiniStudio() {
     if (typeof window !== 'undefined') {
       engineRef.current = getAudioEngine();
       const ctx = engineRef.current.getContext();
-      const mods = getAllModules(ctx, (node) => engineRef.current!.connectFX(node));
+      const mods = getAllModules(
+        ctx,
+        (node) => engineRef.current!.connectFXIn(node),
+        (node) => engineRef.current!.connectFXOut(node)
+      );
       setModules(mods);
       
       if (mods.length > 0) {
@@ -52,10 +56,6 @@ export default function MiniStudio() {
     setCurrentModule(normalizedIndex);
     
     const mod = modulesList[normalizedIndex];
-    if (mod.fxLoop) {
-      engineRef.current.setFXLoop(mod.fxLoop);
-    }
-    
     await engineRef.current.startPlayers();
     setKnobValues(mod.params.map(p => p.value));
   };
@@ -102,6 +102,19 @@ export default function MiniStudio() {
   };
 
   const currentMod = modules[currentModule];
+  const handleRecord = async () => {
+    if (!engineRef.current) return;
+    // record 10 seconds of current mix (dry/fx according to controls)
+    const blob = await engineRef.current.record(10);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'nodaw_demo.webm';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <section id="demo" className="py-20 px-6">
@@ -205,6 +218,13 @@ export default function MiniStudio() {
                   }`}
                 >
                   Processed
+                </button>
+                <button
+                  onClick={handleRecord}
+                  className="px-6 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200"
+                  title="Record 10s of current mix"
+                >
+                  Download 10s
                 </button>
               </div>
             </div>

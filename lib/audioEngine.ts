@@ -3,7 +3,6 @@
 export interface AudioModule {
   name: string;
   info: string;
-  fxLoop?: string;
   params: Array<{
     label: string;
     min: number;
@@ -21,23 +20,32 @@ export class AudioEngine {
   private ctx: AudioContext;
   private analyser: AnalyserNode;
   private data: Uint8Array<ArrayBuffer>;
-  private sourceDry?: AudioBufferSourceNode;
-  private sourceFX?: AudioBufferSourceNode;
+  private source?: AudioBufferSourceNode;
   private gainDry: GainNode;
   private gainFX: GainNode;
-  private loopDryUrl: string = '/assets/loops/dry.wav';
-  private loopFXUrl: string = '/assets/loops/warmth_fx.wav';
+  private fxInput: GainNode;
+  private recorderDest: MediaStreamAudioDestinationNode;
+  private mediaRecorder?: MediaRecorder;
+  private recordChunks: Blob[] = [];
+  private isRecording = false;
+  private loopUrl: string = '/assets/loops/dry.wav';
 
   constructor() {
     this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.gainDry = this.ctx.createGain();
     this.gainFX = this.ctx.createGain();
+    this.fxInput = this.ctx.createGain();
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 256;
     this.data = new Uint8Array(this.analyser.frequencyBinCount);
 
     this.gainDry.gain.value = 1.0;
     this.gainFX.gain.value = 0.0;
+
+    // Mix bus: analyser feeds destination and recorder
+    this.recorderDest = this.ctx.createMediaStreamDestination();
+    this.analyser.connect(this.ctx.destination);
+    this.analyser.connect(this.recorderDest);
   }
 
   async loadLoop(url: string): Promise<AudioBuffer> {
@@ -47,27 +55,26 @@ export class AudioEngine {
   }
 
   async startPlayers(): Promise<void> {
-    // Stop existing sources if they exist
-    if (this.sourceDry) this.sourceDry.stop();
-    if (this.sourceFX) this.sourceFX.stop();
+    // Stop existing source if exists
+    if (this.source) {
+      try { this.source.stop(); } catch {}
+    }
 
-    const [bufDry, bufFX] = await Promise.all([
-      this.loadLoop(this.loopDryUrl),
-      this.loadLoop(this.loopFXUrl),
-    ]);
+    const buf = await this.loadLoop(this.loopUrl);
 
-    this.sourceDry = this.ctx.createBufferSource();
-    this.sourceDry.buffer = bufDry;
-    this.sourceDry.loop = true;
+    this.source = this.ctx.createBufferSource();
+    this.source.buffer = buf;
+    this.source.loop = true;
 
-    this.sourceFX = this.ctx.createBufferSource();
-    this.sourceFX.buffer = bufFX;
-    this.sourceFX.loop = true;
+    // Fan-out: dry path and FX path
+    this.source.connect(this.gainDry);
+    this.source.connect(this.fxInput);
 
-    this.sourceDry.connect(this.gainDry).connect(this.analyser).connect(this.ctx.destination);
-    this.sourceFX.connect(this.gainFX).connect(this.analyser);
-    this.sourceDry.start(0);
-    this.sourceFX.start(0);
+    // Route to analyser (mix bus)
+    this.gainDry.connect(this.analyser);
+    this.gainFX.connect(this.analyser);
+
+    this.source.start(0);
   }
 
   getMeterLevel(): number {
@@ -78,29 +85,82 @@ export class AudioEngine {
   }
 
   setDry(val: number): void {
-    this.gainDry.gain.value = val;
+    const t = this.ctx.currentTime;
+    this.gainDry.gain.cancelScheduledValues(t);
+    this.gainDry.gain.setValueAtTime(this.gainDry.gain.value, t);
+    this.gainDry.gain.linearRampToValueAtTime(val, t + 0.03);
   }
 
   setFX(val: number): void {
-    this.gainFX.gain.value = val;
+    const t = this.ctx.currentTime;
+    this.gainFX.gain.cancelScheduledValues(t);
+    this.gainFX.gain.setValueAtTime(this.gainFX.gain.value, t);
+    this.gainFX.gain.linearRampToValueAtTime(val, t + 0.03);
   }
 
-  connectDry(node: AudioNode): void {
-    this.gainDry.disconnect();
-    this.gainDry.connect(node);
+  // Connect the FX input (beginning of processing chain)
+  connectFXIn(node: AudioNode): void {
+    try { this.fxInput.disconnect(); } catch {}
+    this.fxInput.connect(node);
   }
 
-  connectFX(node: AudioNode): void {
-    this.gainFX.disconnect();
-    this.gainFX.connect(node);
+  // Connect the FX chain output into the engine's FX gain/mix bus
+  connectFXOut(node: AudioNode): void {
+    try { node.disconnect(); } catch {}
+    node.connect(this.gainFX);
   }
 
-  setFXLoop(url: string): void {
-    this.loopFXUrl = url;
+  setLoop(url: string): void {
+    this.loopUrl = url;
   }
 
   getContext(): AudioContext {
     return this.ctx;
+  }
+
+  // Recording the mixed/analyzed output (typically the current mix)
+  async record(seconds: number = 10): Promise<Blob> {
+    if (this.isRecording) throw new Error('Already recording');
+    const stream = this.recorderDest.stream;
+    const mime = this.getSupportedMimeType();
+    this.mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    this.recordChunks = [];
+    this.isRecording = true;
+
+    return new Promise<Blob>((resolve, reject) => {
+      if (!this.mediaRecorder) return reject(new Error('MediaRecorder not initialized'));
+
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) this.recordChunks.push(e.data);
+      };
+      this.mediaRecorder.onerror = (e) => {
+        this.isRecording = false;
+        reject((e as any).error || new Error('Recorder error'));
+      };
+      this.mediaRecorder.onstop = () => {
+        this.isRecording = false;
+        const blob = new Blob(this.recordChunks, { type: mime || 'audio/webm' });
+        resolve(blob);
+      };
+
+      this.mediaRecorder.start();
+      setTimeout(() => {
+        try { this.mediaRecorder?.stop(); } catch (e) { reject(e as any); }
+      }, Math.max(0, seconds * 1000));
+    });
+  }
+
+  private getSupportedMimeType(): string | null {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ];
+    for (const t of types) {
+      if ((window as any).MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return null;
   }
 }
 
