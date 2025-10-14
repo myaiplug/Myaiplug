@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { getAudioEngine } from "@/lib/audioEngine";
 import { getAllModules } from "@/lib/audioModules";
@@ -15,7 +15,10 @@ export default function MiniStudio() {
   const [knobValues, setKnobValues] = useState<number[]>([]);
   const [activeModules, setActiveModules] = useState<boolean[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const [userPresets, setUserPresets] = useState<{ name: string; values: number[] }[]>([]);
+  interface UserPreset { name: string; values: number[]; category?: string; uses?: number; }
+  const [userPresets, setUserPresets] = useState<UserPreset[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
   const engineRef = useRef<ReturnType<typeof getAudioEngine> | null>(null);
   const animFrameRef = useRef<number | undefined>(undefined);
 
@@ -75,9 +78,7 @@ export default function MiniStudio() {
       const key = `myaiplug.presets.${mod.name}`;
       const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
       setUserPresets(raw ? JSON.parse(raw) : []);
-    } catch {
-      setUserPresets([]);
-    }
+    } catch { setUserPresets([]); }
   };
 
   const handlePrevModule = () => loadModule(currentModule - 1);
@@ -106,11 +107,28 @@ export default function MiniStudio() {
     mod.params[paramIndex].oninput(value);
   };
 
-  const applyPreset = (values: number[]) => {
+  const applyPreset = (values: number[], markUsePresetName?: string) => {
     const mod = modules[currentModule];
     if (!mod) return;
     setKnobValues(values);
     values.forEach((v, idx) => mod.params[idx]?.oninput(v));
+    if (markUsePresetName) {
+      setUserPresets(prev => {
+        const next = prev.map(p => p.name === markUsePresetName ? { ...p, uses: (p.uses || 0) + 1 } : p);
+        try { localStorage.setItem(`myaiplug.presets.${mod.name}`, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+  };
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  const persistPresets = (modName: string, list: UserPreset[]) => {
+    try { localStorage.setItem(`myaiplug.presets.${modName}`, JSON.stringify(list)); } catch {}
   };
 
   const saveCurrentAsPreset = () => {
@@ -118,17 +136,59 @@ export default function MiniStudio() {
     if (!mod) return;
     const name = typeof window !== 'undefined' ? window.prompt(`Save preset for ${mod.name} as:`) : null;
     if (!name) return;
-    // Use current knob values or parameter defaults if missing
+    const category = typeof window !== 'undefined' ? (window.prompt('Category (optional):') || undefined) : undefined;
     const values = mod.params.map((p, i) => (knobValues[i] ?? p.value));
-    const key = `myaiplug.presets.${mod.name}`;
-    const next = [...userPresets, { name, values }];
-    try {
-      localStorage.setItem(key, JSON.stringify(next));
-      setUserPresets(next);
-    } catch {
-      // ignore storage errors
-    }
+    const next: UserPreset[] = [...userPresets, { name, values, category, uses: 0 }];
+    setUserPresets(next);
+    persistPresets(mod.name, next);
+    showToast('Preset saved');
   };
+
+  const deletePreset = (presetName: string) => {
+    const mod = modules[currentModule];
+    if (!mod) return;
+    if (!confirm(`Delete preset "${presetName}"?`)) return;
+    const next = userPresets.filter(p => p.name !== presetName);
+    setUserPresets(next);
+    persistPresets(mod.name, next);
+    showToast('Preset deleted');
+  };
+
+  const renamePreset = (presetName: string) => {
+    const mod = modules[currentModule];
+    if (!mod) return;
+    const newName = prompt('New name:', presetName);
+    if (!newName || newName === presetName) return;
+    const next = userPresets.map(p => p.name === presetName ? { ...p, name: newName } : p);
+    setUserPresets(next);
+    persistPresets(mod.name, next);
+    showToast('Preset renamed');
+  };
+
+  // Frequently used (top 5 by uses)
+  const frequentlyUsed = [...userPresets]
+    .filter(p => (p.uses || 0) > 0)
+    .sort((a, b) => (b.uses || 0) - (a.uses || 0))
+    .slice(0, 5);
+
+  // Recommendation: choose unused preset closest in vector distance to avg of frequently used
+  let recommended: UserPreset | undefined;
+  if (frequentlyUsed.length && userPresets.length > frequentlyUsed.length) {
+    const dimension = (userPresets[0]?.values.length) || 0;
+    const avg = Array(dimension).fill(0);
+    frequentlyUsed.forEach(p => p.values.forEach((v, i) => { avg[i] += v; }));
+    for (let i = 0; i < dimension; i++) avg[i] /= frequentlyUsed.length;
+    function dist(a: number[], b: number[]) {
+      return Math.sqrt(a.reduce((acc, v, i) => acc + (v - (b[i] ?? 0)) ** 2, 0));
+    }
+    let best: { d: number; p: UserPreset } | null = null;
+    for (const p of userPresets) {
+      if (frequentlyUsed.includes(p)) continue;
+      const d = dist(p.values, avg);
+      if (!best || d < best.d) best = { d, p };
+    }
+    recommended = best?.p;
+  }
 
   const currentMod = modules[currentModule];
 
@@ -193,7 +253,7 @@ export default function MiniStudio() {
         >
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_260px] gap-6">
             {/* Presets */}
-            <div className="bg-black/25 border border-white/5 rounded-xl p-4">
+            <div className="bg-black/25 border border-white/5 rounded-xl p-4 relative">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs uppercase tracking-wider text-gray-400">Presets</div>
                 <button
@@ -219,16 +279,55 @@ export default function MiniStudio() {
                   <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Your Presets</div>
                   <div className="space-y-2">
                     {userPresets.map((preset, idx) => (
+                      <div key={`${preset.name}-${idx}`} className="group flex items-center gap-2">
+                        <button
+                          onClick={() => applyPreset(preset.values, preset.name)}
+                          className="flex-1 text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-primary/10 hover:border-myai-primary/30 hover:shadow-lg hover:shadow-myai-primary/20 transition-all duration-200 text-sm"
+                          title={`Apply preset${preset.category ? ' • ' + preset.category : ''}`}
+                        >
+                          {preset.name}
+                          {preset.category && <span className="ml-2 text-[10px] text-gray-400 uppercase tracking-wide">{preset.category}</span>}
+                          {preset.uses ? <span className="ml-2 text-[10px] text-gray-500">×{preset.uses}</span> : null}
+                        </button>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => renamePreset(preset.name)}
+                            className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] hover:bg-white/10"
+                            title="Rename"
+                          >✎</button>
+                          <button
+                            onClick={() => deletePreset(preset.name)}
+                            className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] hover:bg-red-600/40 hover:border-red-500/60"
+                            title="Delete"
+                          >✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {frequentlyUsed.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-xs uppercase tracking-wider text-gray-400 mb-2 flex items-center justify-between">
+                    <span>Frequently Used</span>
+                    {recommended && <span className="text-[10px] text-myai-primary/70">Try: {recommended.name}</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {frequentlyUsed.map(p => (
                       <button
-                        key={`${preset.name}-${idx}`}
-                        onClick={() => applyPreset(preset.values)}
-                        className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-primary/10 hover:border-myai-primary/30 hover:shadow-lg hover:shadow-myai-primary/20 transition-all duration-200 text-sm"
-                        title="Apply your saved preset"
+                        key={`freq-${p.name}`}
+                        onClick={() => applyPreset(p.values, p.name)}
+                        className="text-xs px-2 py-1 rounded-md border border-white/10 bg-white/5 hover:bg-myai-primary/10 hover:border-myai-primary/30"
                       >
-                        {preset.name}
+                        {p.name}
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+              {toast && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-2 px-3 py-1.5 rounded-md bg-black/80 border border-white/10 text-xs text-white shadow-lg animate-fade-in">
+                  {toast}
                 </div>
               )}
             </div>

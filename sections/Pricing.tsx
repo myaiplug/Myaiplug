@@ -1,6 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
+
+const SaleRibbon = dynamic(() => import('@/components/SaleRibbon'), { ssr: false });
+const GeometryParticles = dynamic(() => import('@/components/GeometryParticles'), { ssr: false });
 
 const plans = [
   {
@@ -75,17 +79,7 @@ export default function Pricing() {
             Start free, upgrade anytime. All plans include our core audio modules.
           </p>
           
-          {/* Founders Pricing Badge */}
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="inline-block"
-          >
-            <span className="px-4 py-2 rounded-full bg-myai-accent-warm/20 border border-myai-accent-warm/40 text-myai-accent-warm text-sm font-semibold animate-glow-pulse">
-              🔥 Founders Pricing Ends Soon
-            </span>
-          </motion.div>
+          <div className="flex justify-center"><SaleRibbon /></div>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -96,19 +90,35 @@ export default function Pricing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: idx * 0.15 }}
-              className={`relative bg-myai-bg-panel/40 backdrop-blur-xl border rounded-2xl p-8 transition-all duration-300 ${
+              className={`group relative bg-myai-bg-panel/40 backdrop-blur-xl border rounded-2xl p-8 transition-all duration-500 overflow-hidden ${
                 plan.highlighted
-                  ? 'border-myai-primary shadow-2xl shadow-myai-primary/20 scale-105 md:scale-110'
-                  : 'border-white/10 hover:border-myai-primary/30'
-              }`}
+                  ? 'border-myai-primary/60 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] shadow-myai-primary/30 scale-105 md:scale-110'
+                  : 'border-white/10 hover:border-myai-primary/40'
+              } hover:shadow-2xl hover:shadow-myai-primary/20`}
             >
-              {plan.badge && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="px-4 py-1 bg-gradient-to-r from-myai-primary to-myai-accent text-white text-xs font-bold rounded-full">
-                    {plan.badge}
-                  </span>
+              {/* Animated gradient border sheen */}
+              <div className="pointer-events-none absolute inset-0 rounded-2xl border border-transparent group-hover:border-myai-primary/40">
+                <div className="absolute inset-[-1px] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="w-full h-full animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,var(--tw-gradient-stops))] from-myai-primary via-transparent to-myai-accent opacity-30 blur-sm" />
+                </div>
+              </div>
+              {/* Tilt / lift effect */}
+              <div className="absolute inset-0 transform-gpu transition-transform duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.4deg]" />
+              {/* Soft glow behind on hover */}
+              <div className="pointer-events-none absolute -inset-8 opacity-0 group-hover:opacity-40 transition-opacity duration-500 blur-3xl bg-gradient-to-br from-myai-primary/20 via-myai-accent/10 to-transparent" />
+              {plan.highlighted && (
+                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                  <div className="absolute inset-0 opacity-60 mix-blend-screen">
+                    <GeometryParticles />
+                  </div>
                 </div>
               )}
+              {plan.highlighted && (
+                <div className="absolute -right-4 top-4 rotate-3">
+                  <SaleRibbon />
+                </div>
+              )}
+              {/* Removed badge pill per request */}
 
               <div className="text-center mb-8">
                 <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
@@ -139,13 +149,15 @@ export default function Pricing() {
               </ul>
 
               <button
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
+                className={`relative w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 overflow-hidden ${
                   plan.highlighted
-                    ? 'bg-gradient-to-r from-myai-primary to-myai-accent text-white hover:scale-105 hover:shadow-2xl hover:shadow-myai-primary/50'
-                    : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-myai-primary/30'
-                }`}
+                    ? 'bg-gradient-to-r from-myai-primary to-myai-accent text-white'
+                    : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-myai-primary/30 text-white'
+                } group-hover:shadow-xl group-hover:shadow-myai-primary/30 group-hover:scale-[1.02]`}
               >
-                {plan.cta}
+                <span className="relative z-10">{plan.cta}</span>
+                <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_60%)]" />
+                <span className="pointer-events-none absolute -inset-px rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-white/10 via-transparent to-white/10 mix-blend-overlay" />
               </button>
 
               {plan.highlighted && (
