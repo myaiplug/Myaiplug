@@ -16,17 +16,7 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
         >
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="inline-block mb-6"
-          >
-            <span className="px-4 py-2 rounded-full border border-myai-primary/30 bg-myai-primary/10 text-myai-primary text-sm font-semibold tracking-wide backdrop-blur-sm">
-              🎵 Powered by MyAiPlug — The Creators Hub
-            </span>
-          </motion.div>
+          {/* Removed top badge/pill above brand per request */}
 
           {/* Main Heading with small brand label above NoDAW */}
           <motion.h1
