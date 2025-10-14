@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { getAudioEngine } from '@/lib/audioEngine';
 import { getAllModules } from '@/lib/audioModules';
 import type { AudioModule } from '@/lib/audioEngine';
+import Knob from '@/components/Knob';
 
 export default function MiniStudio() {
   const [modules, setModules] = useState<AudioModule[]>([]);
@@ -155,31 +156,26 @@ export default function MiniStudio() {
 
               {/* Knobs */}
               <div className="flex gap-6 justify-center min-h-[180px] items-center">
-                {currentMod?.params.map((param, idx) => (
-                  <div key={idx} className="flex flex-col items-center">
-                    <div className="relative w-24 h-24">
-                      <input
-                        type="range"
-                        min={param.min}
-                        max={param.max}
-                        step={(param.max - param.min) / 100}
-                        value={knobValues[idx] ?? param.value}
-                        onChange={(e) => handleKnobChange(idx, parseFloat(e.target.value))}
-                        className="knob-slider"
-                        style={{
-                          background: `conic-gradient(
-                            #7C4DFF 0deg,
-                            #7C4DFF ${((knobValues[idx] ?? param.value) - param.min) / (param.max - param.min) * 270}deg,
-                            #333 ${((knobValues[idx] ?? param.value) - param.min) / (param.max - param.min) * 270}deg,
-                            #333 360deg
-                          )`,
-                        }}
-                      />
-                    </div>
-                    <div className="mt-2 text-sm font-semibold">{param.label}</div>
-                    <div className="text-xs text-gray-500">{(knobValues[idx] ?? param.value).toFixed(1)}</div>
-                  </div>
-                ))}
+                {currentMod?.params.map((param, idx) => {
+                  const value = knobValues[idx] ?? param.value;
+                  return (
+                    <Knob
+                      key={idx}
+                      value={value}
+                      min={param.min}
+                      max={param.max}
+                      step={(param.max - param.min) / 100}
+                      onChange={(v) => handleKnobChange(idx, v)}
+                      label={param.label}
+                      size={96}
+                      fillColor="#7C4DFF"
+                      trackColor="#333333"
+                      faceColor="#111122"
+                      pointerColor="#FFFFFF"
+                      showTicks={true}
+                    />
+                  );
+                })}
               </div>
 
               {/* A/B Buttons */}
@@ -270,33 +266,6 @@ export default function MiniStudio() {
         </motion.div>
       </div>
 
-      <style jsx>{`
-        .knob-slider {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
-          appearance: none;
-          cursor: pointer;
-          border: 4px solid #333;
-          box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.3);
-        }
-        .knob-slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 6px;
-          height: 30px;
-          background: white;
-          border-radius: 3px;
-          cursor: pointer;
-        }
-        .knob-slider::-moz-range-thumb {
-          width: 6px;
-          height: 30px;
-          background: white;
-          border-radius: 3px;
-          cursor: pointer;
-          border: none;
-        }
-      `}</style>
     </section>
   );
 }
