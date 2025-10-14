@@ -15,8 +15,19 @@ export default function MiniStudio() {
   const [knobValues, setKnobValues] = useState<number[]>([]);
   const [activeModules, setActiveModules] = useState<boolean[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [userPresets, setUserPresets] = useState<{ name: string; values: number[] }[]>([]);
   const engineRef = useRef<ReturnType<typeof getAudioEngine> | null>(null);
   const animFrameRef = useRef<number | undefined>(undefined);
+
+  // Simple helper copy for tooltips (fallback to module.info)
+  const TOOLTIP: Record<string, string> = {
+    "Warmth": "Adds body and soft tape-like harmonics.",
+    "Stereo Widener": "Wider stereo image that stays safe in mono.",
+    "EQ Lite (3‑Band)": "Quickly shape lows, mids, and airy highs.",
+    "Reverb Lite": "Adds space and ambience; set amount and room size.",
+    "HalfScrew": "Lo-fi pitch/tempo demo effect.",
+    "reTUNE 432": "Simple pitch tuning demo (432/440/444).",
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -58,6 +69,15 @@ export default function MiniStudio() {
     }
     await engineRef.current.startPlayers();
     setKnobValues(mod.params.map((p) => p.value));
+
+    // Load user presets for this module from localStorage
+    try {
+      const key = `myaiplug.presets.${mod.name}`;
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+      setUserPresets(raw ? JSON.parse(raw) : []);
+    } catch {
+      setUserPresets([]);
+    }
   };
 
   const handlePrevModule = () => loadModule(currentModule - 1);
@@ -91,6 +111,23 @@ export default function MiniStudio() {
     if (!mod) return;
     setKnobValues(values);
     values.forEach((v, idx) => mod.params[idx]?.oninput(v));
+  };
+
+  const saveCurrentAsPreset = () => {
+    const mod = modules[currentModule];
+    if (!mod) return;
+    const name = typeof window !== 'undefined' ? window.prompt(`Save preset for ${mod.name} as:`) : null;
+    if (!name) return;
+    // Use current knob values or parameter defaults if missing
+    const values = mod.params.map((p, i) => (knobValues[i] ?? p.value));
+    const key = `myaiplug.presets.${mod.name}`;
+    const next = [...userPresets, { name, values }];
+    try {
+      localStorage.setItem(key, JSON.stringify(next));
+      setUserPresets(next);
+    } catch {
+      // ignore storage errors
+    }
   };
 
   const currentMod = modules[currentModule];
@@ -157,7 +194,15 @@ export default function MiniStudio() {
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_260px] gap-6">
             {/* Presets */}
             <div className="bg-black/25 border border-white/5 rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-3">Presets</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs uppercase tracking-wider text-gray-400">Presets</div>
+                <button
+                  onClick={saveCurrentAsPreset}
+                  className="text-xs px-2 py-1 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                >
+                  Save current
+                </button>
+              </div>
               <div className="space-y-2">
                 {currentMod?.presets.map((preset, idx) => (
                   <button
@@ -169,6 +214,23 @@ export default function MiniStudio() {
                   </button>
                 ))}
               </div>
+              {userPresets.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Your Presets</div>
+                  <div className="space-y-2">
+                    {userPresets.map((preset, idx) => (
+                      <button
+                        key={`${preset.name}-${idx}`}
+                        onClick={() => applyPreset(preset.values)}
+                        className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-primary/10 hover:border-myai-primary/30 hover:shadow-lg hover:shadow-myai-primary/20 transition-all duration-200 text-sm"
+                        title="Apply your saved preset"
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Center - Controls */}
@@ -235,16 +297,20 @@ export default function MiniStudio() {
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Active Modules</div>
               <div className="flex flex-wrap gap-2 mb-6">
                 {modules.map((m, idx) => (
-                  <button
-                    key={m.name + idx}
-                    onClick={() => toggleModuleActive(idx)}
-                    className={`text-xs px-2 py-1 rounded-md border ${
-                      activeModules[idx] ? "bg-myai-primary/20 border-myai-primary/40" : "bg-white/5 border-white/10"
-                    }`}
-                    title={m.info}
-                  >
-                    {m.name}
-                  </button>
+                  <div key={m.name + idx} className="relative group">
+                    <button
+                      onClick={() => toggleModuleActive(idx)}
+                      className={`text-xs px-2 py-1 rounded-md border ${
+                        activeModules[idx] ? "bg-myai-primary/20 border-myai-primary/40" : "bg-white/5 border-white/10"
+                      }`}
+                      title={TOOLTIP[m.name] || m.info}
+                    >
+                      {m.name}
+                    </button>
+                    <div className="pointer-events-none absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded-md bg-black/80 text-white text-[11px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg border border-white/10">
+                      {TOOLTIP[m.name] || m.info}
+                    </div>
+                  </div>
                 ))}
               </div>
 
