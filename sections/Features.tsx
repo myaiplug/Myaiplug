@@ -87,34 +87,111 @@ const PremiumIcons = {
   ),
 };
 
+// Alternate outline icon style (stroke-based, premium gradients)
+const OutlineIcons = {
+  quality: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="rgb(56,189,248)" />
+          <stop offset="100%" stopColor="rgb(168,85,247)" />
+        </linearGradient>
+      </defs>
+      <path d="M24 6l5 10 11 1.6-8 7.7 1.9 10.9L24 31l-9.9 5.2L16 25.3 7 17.6 18 16z" fill="none" stroke="url(#ograd-1)" strokeWidth="3" strokeLinejoin="round" />
+    </svg>
+  ),
+  realtime: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-2" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgb(99,102,241)" />
+          <stop offset="100%" stopColor="rgb(56,189,248)" />
+        </linearGradient>
+      </defs>
+      <path d="M8 30h4l4-12 6 20 4-10h10" stroke="url(#ograd-2)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  modules: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="rgb(34,197,94)" />
+          <stop offset="100%" stopColor="rgb(56,189,248)" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="6" width="12" height="12" rx="3" fill="none" stroke="url(#ograd-3)" strokeWidth="3" />
+      <rect x="30" y="6" width="12" height="12" rx="3" fill="none" stroke="url(#ograd-3)" strokeWidth="3" opacity="0.7" />
+      <rect x="6" y="30" width="12" height="12" rx="3" fill="none" stroke="url(#ograd-3)" strokeWidth="3" opacity="0.7" />
+      <rect x="30" y="30" width="12" height="12" rx="3" fill="none" stroke="url(#ograd-3)" strokeWidth="3" />
+    </svg>
+  ),
+  ui: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-4" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgb(168,85,247)" />
+          <stop offset="100%" stopColor="rgb(236,72,153)" />
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r="10" stroke="url(#ograd-4)" strokeWidth="4" fill="none" />
+      <path d="M24 10v8M24 30v8M10 24h8M30 24h8" stroke="url(#ograd-4)" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  ),
+  presets: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-5" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="rgb(236,72,153)" />
+          <stop offset="100%" stopColor="rgb(99,102,241)" />
+        </linearGradient>
+      </defs>
+      <path d="M12 16h24M12 24h24M12 32h24" stroke="url(#ograd-5)" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="20" cy="16" r="3" stroke="url(#ograd-5)" strokeWidth="3" fill="none" />
+      <circle cx="28" cy="24" r="3" stroke="url(#ograd-5)" strokeWidth="3" fill="none" />
+      <circle cx="16" cy="32" r="3" stroke="url(#ograd-5)" strokeWidth="3" fill="none" />
+    </svg>
+  ),
+  cloud: (
+    <svg width="28" height="28" viewBox="0 0 48 48" className="text-myai-accent">
+      <defs>
+        <linearGradient id="ograd-6" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgb(56,189,248)" />
+          <stop offset="100%" stopColor="rgb(34,197,94)" />
+        </linearGradient>
+      </defs>
+      <path d="M18 36h16a8 8 0 100-16 10 10 0 10-16 8H10a6 6 0 100 12h8" stroke="url(#ograd-6)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
 const features: Feature[] = [
   {
-    icon: PremiumIcons.quality,
+    icon: OutlineIcons.quality,
     title: 'Studio-Grade Quality',
     description: 'Professional audio processing that rivals industry-standard plugins from Waves, FabFilter, and iZotope.',
   },
   {
-    icon: PremiumIcons.realtime,
+    icon: OutlineIcons.realtime,
     title: 'Real-Time Processing',
     description: 'Ultra-low latency Web Audio API engine for instant feedback and seamless workflow.',
   },
   {
-    icon: PremiumIcons.modules,
+    icon: OutlineIcons.modules,
     title: '6 Premium Modules',
     description: 'Warmth, Stereo Widener, HalfScrew, reTUNE 432, 3-Band EQ, and Reverb — all in one suite.',
   },
   {
-    icon: PremiumIcons.ui,
+    icon: OutlineIcons.ui,
     title: 'Intuitive Interface',
     description: 'Clean, dark UI with precision knob controls and instant A/B comparison.',
   },
   {
-    icon: PremiumIcons.presets,
+    icon: OutlineIcons.presets,
     title: 'Preset System',
     description: 'Curated presets for instant results, plus the ability to save your own custom settings.',
   },
   {
-    icon: PremiumIcons.cloud,
+    icon: OutlineIcons.cloud,
     title: 'No Installation',
     description: 'Browser-based technology means instant access from any device, anywhere.',
   },
@@ -153,16 +230,18 @@ export default function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: idx * 0.06 }}
-              className="group relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hover:from-myai-primary/40 hover:via-white/10 hover:to-transparent transition-colors duration-500"
+              className="group relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hover:from-myai-primary/50 hover:via-white/15 hover:to-transparent transition-colors duration-500 will-change-transform"
             >
-              <div className="relative h-full rounded-2xl bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 p-6">
-                {/* glow */}
-                <div className="absolute -inset-20 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity duration-500" aria-hidden>
-                  <div className="size-full bg-[conic-gradient(from_180deg_at_50%_50%,rgba(56,189,248,0.15),rgba(147,51,234,0.15),rgba(236,72,153,0.15),rgba(56,189,248,0.15))]" />
+              <div className="relative h-full rounded-2xl bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 p-6 shadow-[0_10px_35px_-15px_rgba(0,0,0,0.7)] group-hover:shadow-[0_20px_60px_-15px_rgba(56,189,248,0.35)] transition-shadow duration-500">
+                {/* intensified glow */}
+                <div className="absolute -inset-20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500" aria-hidden>
+                  <div className="size-full bg-[conic-gradient(from_180deg_at_50%_50%,rgba(56,189,248,0.22),rgba(147,51,234,0.22),rgba(236,72,153,0.22),rgba(56,189,248,0.22))] animate-[spin_8s_linear_infinite]" />
                 </div>
+                {/* sheen */}
+                <div className="pointer-events-none absolute inset-0 before:absolute before:inset-0 before:bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.08),transparent)] before:translate-x-[-120%] group-hover:before:translate-x-[120%] before:transition-transform before:duration-700" />
 
                 <div className="relative z-10 flex items-start gap-4">
-                  <div className="shrink-0 p-3 rounded-xl bg-white/5 ring-1 ring-white/10 shadow-inner shadow-black/20 group-hover:shadow-black/40 transition-all">
+                  <div className="shrink-0 p-3 rounded-xl bg-white/5 ring-1 ring-white/10 shadow-inner shadow-black/20 group-hover:shadow-black/40 transition-all group-hover:scale-110">
                     {feature.icon}
                   </div>
                   <div>
@@ -173,11 +252,11 @@ export default function Features() {
 
                 {/* bottom accent */}
                 <div className="relative z-10 mt-6 flex items-center gap-2 text-[11px] text-gray-400">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10">
                     <span className="size-1.5 rounded-full bg-myai-accent animate-pulse" />
                     Optimized Engine
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10">
                     <span className="size-1.5 rounded-full bg-myai-primary/80" />
                     Pro Workflow
                   </span>
