@@ -14,6 +14,8 @@ export interface AudioModule {
     name: string;
     values: number[];
   }>;
+  // Optional: engine can toggle module output contribution
+  setActive?: (active: boolean) => void;
 }
 
 export class AudioEngine {
@@ -23,17 +25,28 @@ export class AudioEngine {
   private source?: AudioBufferSourceNode;
   private gainDry: GainNode;
   private gainFX: GainNode;
+  private mixBus: GainNode;
+  private limiter: DynamicsCompressorNode;
   private fxInput: GainNode;
   private recorderDest: MediaStreamAudioDestinationNode;
   private mediaRecorder?: MediaRecorder;
   private recordChunks: Blob[] = [];
   private isRecording = false;
   private loopUrl: string = '/assets/loops/dry.wav';
+  private userBuffer?: AudioBuffer;
 
   constructor() {
     this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    this.gainDry = this.ctx.createGain();
-    this.gainFX = this.ctx.createGain();
+  this.gainDry = this.ctx.createGain();
+  this.gainFX = this.ctx.createGain();
+  this.mixBus = this.ctx.createGain();
+  this.limiter = this.ctx.createDynamicsCompressor();
+  // Configure as transparent limiter
+  this.limiter.threshold.value = -1.0; // dB
+  this.limiter.knee.value = 0.0;
+  this.limiter.ratio.value = 20.0;
+  this.limiter.attack.value = 0.003;
+  this.limiter.release.value = 0.06;
     this.fxInput = this.ctx.createGain();
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 256;
@@ -42,8 +55,11 @@ export class AudioEngine {
     this.gainDry.gain.value = 1.0;
     this.gainFX.gain.value = 0.0;
 
-    // Mix bus: analyser feeds destination and recorder
+    // Mix bus: dry + fx -> mix -> limiter -> analyser -> destination + recorder
     this.recorderDest = this.ctx.createMediaStreamDestination();
+    this.gainDry.connect(this.mixBus);
+    this.gainFX.connect(this.mixBus);
+    this.mixBus.connect(this.limiter).connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
     this.analyser.connect(this.recorderDest);
   }
@@ -60,7 +76,7 @@ export class AudioEngine {
       try { this.source.stop(); } catch {}
     }
 
-    const buf = await this.loadLoop(this.loopUrl);
+    const buf = this.userBuffer ? this.userBuffer : await this.loadLoop(this.loopUrl);
 
     this.source = this.ctx.createBufferSource();
     this.source.buffer = buf;
@@ -75,6 +91,12 @@ export class AudioEngine {
     this.gainFX.connect(this.analyser);
 
     this.source.start(0);
+  }
+
+  async ensureRunning(): Promise<void> {
+    if (this.ctx.state === 'suspended') {
+      try { await this.ctx.resume(); } catch {}
+    }
   }
 
   getMeterLevel(): number {
@@ -114,6 +136,11 @@ export class AudioEngine {
     this.loopUrl = url;
   }
 
+  async loadFromFile(file: File): Promise<void> {
+    const ab = await file.arrayBuffer();
+    this.userBuffer = await this.ctx.decodeAudioData(ab.slice(0));
+  }
+
   getContext(): AudioContext {
     return this.ctx;
   }
@@ -147,6 +174,34 @@ export class AudioEngine {
       setTimeout(() => {
         try { this.mediaRecorder?.stop(); } catch (e) { reject(e as any); }
       }, Math.max(0, seconds * 1000));
+    });
+  }
+
+  // Manual recording controls
+  startRecording(): void {
+    if (this.isRecording) return;
+    const stream = this.recorderDest.stream;
+    const mime = this.getSupportedMimeType();
+    this.mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    this.recordChunks = [];
+    this.isRecording = true;
+    if (!this.mediaRecorder) return;
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) this.recordChunks.push(e.data);
+    };
+    this.mediaRecorder.start();
+  }
+
+  async stopRecording(): Promise<Blob | null> {
+    if (!this.isRecording || !this.mediaRecorder) return null;
+    const mime = this.getSupportedMimeType();
+    return new Promise<Blob | null>((resolve) => {
+      this.mediaRecorder!.onstop = () => {
+        this.isRecording = false;
+        const blob = new Blob(this.recordChunks, { type: mime || 'audio/webm' });
+        resolve(blob);
+      };
+      try { this.mediaRecorder!.stop(); } catch { resolve(null); }
     });
   }
 

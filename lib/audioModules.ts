@@ -16,10 +16,14 @@ export function createWarmthModule(ctx: AudioContext, connectIn: (node: AudioNod
   shaper.curve = curve;
   shaper.oversample = '2x';
 
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
+
   // chain: IN -> lowshelf -> shaper -> OUT
   connectIn(lowshelf);
   lowshelf.connect(shaper);
-  connectOut(shaper);
+  shaper.connect(activeGain);
+  connectOut(activeGain);
 
   return {
     name: 'Warmth',
@@ -34,7 +38,7 @@ export function createWarmthModule(ctx: AudioContext, connectIn: (node: AudioNod
           const t = ctx.currentTime;
           lowshelf.gain.cancelScheduledValues(t);
           lowshelf.gain.setValueAtTime(lowshelf.gain.value, t);
-          lowshelf.gain.linearRampToValueAtTime(v, t + 0.03);
+          lowshelf.gain.linearRampToValueAtTime(v, t + 0.05);
         },
       },
     ],
@@ -43,6 +47,12 @@ export function createWarmthModule(ctx: AudioContext, connectIn: (node: AudioNod
       { name: 'Subtle Glow', values: [3] },
       { name: 'Thick', values: [8] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
@@ -55,13 +65,16 @@ export function createWidenerModule(ctx: AudioContext, connectIn: (node: AudioNo
   const gainR = ctx.createGain();
   gainL.gain.value = 1;
   gainR.gain.value = 1;
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
 
   connectIn(splitter);
   splitter.connect(gainL, 0);
   gainL.connect(merger, 0, 0);
   splitter.connect(delayR, 1);
   delayR.connect(gainR).connect(merger, 0, 1);
-  connectOut(merger);
+  merger.connect(activeGain);
+  connectOut(activeGain);
 
   let width = 0.5;
   let balance = 0.0;
@@ -104,6 +117,12 @@ export function createWidenerModule(ctx: AudioContext, connectIn: (node: AudioNo
       { name: 'Superwide', values: [1.0, 0] },
       { name: 'Vox L Focus', values: [0.6, -0.2] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
@@ -123,10 +142,13 @@ export function createEQ3Module(ctx: AudioContext, connectIn: (node: AudioNode) 
   air.type = 'highshelf';
   air.frequency.value = 8000;
   air.gain.value = 0;
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
 
   connectIn(low);
   low.connect(mid).connect(air);
-  connectOut(air);
+  air.connect(activeGain);
+  connectOut(activeGain);
 
   return {
     name: 'EQ Lite (3‑Band)',
@@ -174,6 +196,12 @@ export function createEQ3Module(ctx: AudioContext, connectIn: (node: AudioNode) 
       { name: 'Bass Boost', values: [6, 0, -1] },
       { name: 'Lo‑Fi', values: [-4, -3, -2] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
@@ -185,10 +213,13 @@ export function createReverbModule(ctx: AudioContext, connectIn: (node: AudioNod
   delay.connect(fb).connect(delay);
   const mix = ctx.createGain();
   mix.gain.value = 0.2;
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
 
   connectIn(delay);
   delay.connect(mix);
-  connectOut(mix);
+  mix.connect(activeGain);
+  connectOut(activeGain);
 
   return {
     name: 'Reverb Lite',
@@ -224,6 +255,12 @@ export function createReverbModule(ctx: AudioContext, connectIn: (node: AudioNod
       { name: 'Hall', values: [0.35, 0.22] },
       { name: 'Huge', values: [0.5, 0.35] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
@@ -232,8 +269,11 @@ export function createReverbModule(ctx: AudioContext, connectIn: (node: AudioNod
 export function createHalfscrewModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const gain = ctx.createGain();
   gain.gain.value = 0.8;
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
   connectIn(gain);
-  connectOut(gain);
+  gain.connect(activeGain);
+  connectOut(activeGain);
 
   return {
     name: 'HalfScrew',
@@ -258,14 +298,23 @@ export function createHalfscrewModule(ctx: AudioContext, connectIn: (node: Audio
       { name: 'Medium', values: [5] },
       { name: 'Heavy', values: [8] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
 export function createRetuneModule(ctx: AudioContext, connectIn: (node: AudioNode) => void, connectOut: (node: AudioNode) => void): AudioModule {
   const gain = ctx.createGain();
   gain.gain.value = 1.0;
+  const activeGain = ctx.createGain();
+  activeGain.gain.value = 1;
   connectIn(gain);
-  connectOut(gain);
+  gain.connect(activeGain);
+  connectOut(activeGain);
 
   return {
     name: 'reTUNE 432',
@@ -284,6 +333,12 @@ export function createRetuneModule(ctx: AudioContext, connectIn: (node: AudioNod
       { name: '440 Hz', values: [0] },
       { name: '444 Hz', values: [0.16] },
     ],
+    setActive: (on: boolean) => {
+      const t = ctx.currentTime;
+      activeGain.gain.cancelScheduledValues(t);
+      activeGain.gain.setValueAtTime(activeGain.gain.value, t);
+      activeGain.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.04);
+    },
   };
 }
 
