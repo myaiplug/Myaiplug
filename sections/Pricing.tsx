@@ -110,7 +110,7 @@ export default function Pricing() {
               {plan.highlighted && (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                   <div className="absolute inset-0 opacity-70 mix-blend-screen">
-                    <ConnectedParticles hue={205} />
+                    <ConnectedParticles hue={205} pace={0.06} />
                   </div>
                 </div>
               )}

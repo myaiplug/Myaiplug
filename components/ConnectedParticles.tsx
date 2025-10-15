@@ -5,10 +5,11 @@ interface ConnectedParticlesProps {
   className?: string;
   count?: number; // number of nodes
   hue?: number; // base hue for theme (kept for compatibility)
+  pace?: number; // 1 = normal, <1 slower, >1 faster
 }
 
 // Connected lines/triangles with subtle tracer trails in theme colors
-export default function ConnectedParticles({ className = "", count = 48, hue = 200 }: ConnectedParticlesProps) {
+export default function ConnectedParticles({ className = "", count = 48, hue = 200, pace = 0.15 }: ConnectedParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -40,8 +41,8 @@ export default function ConnectedParticles({ className = "", count = 48, hue = 2
     const nodes: Node[] = Array.from({ length: count }, () => ({
       x: Math.random() * w,
       y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.12,
-      vy: (Math.random() - 0.5) * 0.12,
+      vx: (Math.random() - 0.5) * 0.12 * pace,
+      vy: (Math.random() - 0.5) * 0.12 * pace,
       z: Math.random(),
       a: Math.random() * Math.PI * 2,
     }));
@@ -54,7 +55,7 @@ export default function ConnectedParticles({ className = "", count = 48, hue = 2
     function step() {
   const c = ctx;
       if (!c) return;
-  tframe += 0.004; // slow overall pace
+  tframe += 0.004 * pace; // overall pace
       // trail fade for tracer effect
       c.fillStyle = `rgba(0,0,0,0.08)`;
       c.fillRect(0, 0, w, h);
@@ -70,10 +71,10 @@ export default function ConnectedParticles({ className = "", count = 48, hue = 2
       for (const n of nodes) {
         n.x += n.vx;
         n.y += n.vy;
-        n.a += 0.0006 + n.z * 0.0012; // slower rotation
-        // gentler flow
-        n.vx += Math.cos(n.a) * 0.003 * (0.5 + n.z);
-        n.vy += Math.sin(n.a * 1.2) * 0.003 * (0.5 + n.z);
+  n.a += (0.0006 + n.z * 0.0012) * pace; // rotation paced
+  // gentle flow paced
+  n.vx += Math.cos(n.a) * 0.003 * (0.5 + n.z) * pace;
+  n.vy += Math.sin(n.a * 1.2) * 0.003 * (0.5 + n.z) * pace;
         // bounds wrap
         if (n.x < -20) n.x = w + 20; else if (n.x > w + 20) n.x = -20;
         if (n.y < -20) n.y = h + 20; else if (n.y > h + 20) n.y = -20;

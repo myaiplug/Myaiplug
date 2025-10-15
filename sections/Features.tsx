@@ -230,18 +230,14 @@ export default function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: idx * 0.06 }}
-              className="group relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hover:from-myai-primary/50 hover:via-white/15 hover:to-transparent transition-colors duration-500 will-change-transform"
+              className="group relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hover:from-myai-primary/40 hover:via-white/15 hover:to-transparent transition-colors duration-500"
             >
-              <div className="relative h-full rounded-2xl bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 p-6 shadow-[0_10px_35px_-15px_rgba(0,0,0,0.7)] group-hover:shadow-[0_20px_60px_-15px_rgba(56,189,248,0.35)] transition-shadow duration-500">
-                {/* intensified glow */}
-                <div className="absolute -inset-20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500" aria-hidden>
-                  <div className="size-full bg-[conic-gradient(from_180deg_at_50%_50%,rgba(56,189,248,0.22),rgba(147,51,234,0.22),rgba(236,72,153,0.22),rgba(56,189,248,0.22))] animate-[spin_8s_linear_infinite]" />
-                </div>
-                {/* sheen */}
+              <div className="relative h-full rounded-2xl bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 p-6 shadow-[0_10px_35px_-15px_rgba(0,0,0,0.6)] hover:shadow-[0_22px_70px_-18px_rgba(56,189,248,0.35)] transition-shadow duration-500">
+                {/* subtle sheen only */}
                 <div className="pointer-events-none absolute inset-0 before:absolute before:inset-0 before:bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.08),transparent)] before:translate-x-[-120%] group-hover:before:translate-x-[120%] before:transition-transform before:duration-700" />
 
                 <div className="relative z-10 flex items-start gap-4">
-                  <div className="shrink-0 p-3 rounded-xl bg-white/5 ring-1 ring-white/10 shadow-inner shadow-black/20 group-hover:shadow-black/40 transition-all group-hover:scale-110">
+                  <div className="shrink-0 p-3 rounded-xl bg-white/5 ring-1 ring-white/10 shadow-inner shadow-black/20 group-hover:shadow-black/40 transition-all group-hover:scale-105">
                     {feature.icon}
                   </div>
                   <div>
@@ -249,18 +245,7 @@ export default function Features() {
                     <p className="text-gray-400 text-sm leading-relaxed mt-1">{feature.description}</p>
                   </div>
                 </div>
-
-                {/* bottom accent */}
-                <div className="relative z-10 mt-6 flex items-center gap-2 text-[11px] text-gray-400">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10">
-                    <span className="size-1.5 rounded-full bg-myai-accent animate-pulse" />
-                    Optimized Engine
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10">
-                    <span className="size-1.5 rounded-full bg-myai-primary/80" />
-                    Pro Workflow
-                  </span>
-                </div>
+                {/* removed confusing bottom badges for a cleaner look */}
               </div>
             </motion.div>
           ))}
