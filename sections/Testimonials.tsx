@@ -50,8 +50,16 @@ export default function Testimonials() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: idx * 0.15 }}
-              className="bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 rounded-xl p-6 hover:border-myai-primary/30 transition-all duration-300"
+              className="group relative bg-myai-bg-panel/40 backdrop-blur-xl border border-white/10 rounded-xl p-6 transition-all duration-500 overflow-hidden hover:border-myai-primary/40 hover:shadow-2xl hover:shadow-myai-primary/20"
             >
+              {/* gradient sheen */}
+              <div className="pointer-events-none absolute inset-0 rounded-xl border border-transparent group-hover:border-myai-primary/30">
+                <div className="absolute inset-[-1px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="w-full h-full animate-[spin_10s_linear_infinite] bg-[conic-gradient(from_0deg,var(--tw-gradient-stops))] from-myai-primary via-transparent to-myai-accent opacity-25 blur-sm" />
+                </div>
+              </div>
+              {/* soft background glow on hover */}
+              <div className="pointer-events-none absolute -inset-8 opacity-0 group-hover:opacity-40 transition-opacity duration-500 blur-3xl bg-gradient-to-br from-myai-primary/20 via-myai-accent/10 to-transparent" />
               {/* Rating Stars */}
               <div className="flex gap-1 mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (

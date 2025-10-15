@@ -155,9 +155,9 @@ export default function Pricing() {
                   plan.highlighted
                     ? 'bg-gradient-to-r from-myai-primary to-myai-accent text-white'
                     : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-myai-primary/30 text-white'
-                } group-hover:shadow-xl group-hover:shadow-myai-primary/30 group-hover:scale-[1.02]`}
+                } group-hover:shadow-xl group-hover:shadow-myai-primary/30 group-hover:scale-[1.02] whitespace-nowrap`}
               >
-                <span className="relative z-10">{plan.cta}</span>
+                <span className="relative z-10 inline-block align-middle">{plan.cta}</span>
                 <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_60%)]" />
                 <span className="pointer-events-none absolute -inset-px rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-white/10 via-transparent to-white/10 mix-blend-overlay" />
               </button>

@@ -9,12 +9,15 @@ function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
   useEffect(() => {
     if (!show) return;
     const script = [
-      'C> boot NoDAW.exe',
-      'Initializing audio graph... OK',
-      'Loading AI modules: WARMTH, WIDENER, EQ3, REVERB... OK',
-      'Calibrating limiter... OK',
-      'Spinning up render threads... OK',
-      'Ready.'
+      'C> nodaw.exe --boot',
+      'Initializing audio graph............. OK',
+      'Loading AI modules: WARMTH | WIDENER | EQ3 | REVERB | HALFSCRW | RETUNE... OK',
+      'Calibrating limiter.................. OK',
+      'Priming buffers...................... OK',
+      'Ready. Preparing render pipeline... OK',
+      'FFmpeg plan:',
+      '  ffmpeg -i input.wav -af "lowpass=f=18000, acompressor=threshold=-10dB:ratio=2:attack=5:release=50, aecho=0.8:0.9:100:0.3, dynaudnorm=f=200" -c:a aac -b:a 320k output.m4a',
+      'Waiting for user input...'
     ];
     let i = 0;
     const id = setInterval(() => {
@@ -22,16 +25,16 @@ function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
       i++;
       if (i >= script.length) {
         clearInterval(id);
-        setTimeout(onDone, 700);
+        setTimeout(onDone, 1800);
       }
-    }, 400);
+    }, 900);
     return () => clearInterval(id);
   }, [show, onDone]);
   if (!show) return null;
   return (
-    <div className="absolute inset-0 z-0">
-      <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px]" />
-      <pre className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-green-300/90 text-xs md:text-sm bg-black/60 border border-white/10 rounded-lg p-4 w-[90%] max-w-2xl overflow-hidden shadow-2xl">
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="absolute inset-0 bg-black/35" />
+      <pre className="absolute right-6 top-1/2 -translate-y-1/2 text-green-300/90 text-[10px] md:text-xs bg-black/60 border border-white/10 rounded-lg p-4 w-[54%] max-w-xl overflow-hidden shadow-2xl h-[46%] md:h-[54%]">
 {` _   _       ____    ____        _
 | \ | | ___ |  _ \\  / ___| _ __(_)_ __   __ _
 |  \| |/ _ \\| | | | \\___ \\| '__| | '_ \\ / _
@@ -39,9 +42,13 @@ function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
 |_| \\_|\\___/|____/  |____/|_|  |_|_| |_|\\__, |
                                             |___/`}
 
-        {lines.map((l, idx) => (
-          <div key={idx}>{l}</div>
-        ))}
+        <div className="mt-2 overflow-hidden h-full">
+          <div className="animate-[scroll_24s_linear_forwards] space-y-1">
+            {lines.map((l, idx) => (
+              <div key={idx}>{l}</div>
+            ))}
+          </div>
+        </div>
         <div className="mt-2 animate-pulse">Press any key to continue...</div>
       </pre>
     </div>
@@ -69,14 +76,16 @@ export default function Hero() {
   const [boot, setBoot] = useState(true);
   const [invite, setInvite] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setInvite(true), 2600);
+    const t = setTimeout(() => setInvite(true), 5200);
     return () => clearTimeout(t);
   }, []);
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-bg-dark/50 to-myai-bg-dark z-10 pointer-events-none" />
-      <BootOverlay show={boot} onDone={() => setBoot(false)} />
+  <BootOverlay show={boot} onDone={() => setBoot(false)} />
+  {/* keyframes for scroll animation */}
+  <style>{`@keyframes scroll { from { transform: translateY(0); } to { transform: translateY(-30%); } }`}</style>
       
       {/* Content */}
       <div className="relative z-20 max-w-6xl mx-auto px-6 py-20 text-center">
