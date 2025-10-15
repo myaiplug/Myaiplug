@@ -25,7 +25,7 @@ function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
       i++;
       if (i >= script.length) {
         clearInterval(id);
-        setTimeout(onDone, 1800);
+        setTimeout(onDone, 300);
       }
     }, 900);
     return () => clearInterval(id);
@@ -72,18 +72,70 @@ function DemoInviteModal({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+function LeftFileWindow({ show, onDone }: { show: boolean; onDone: () => void }) {
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
+  useEffect(() => {
+    if (!show) return;
+    const timers: number[] = [];
+    timers.push(window.setTimeout(() => setStep(1), 600));
+    timers.push(window.setTimeout(() => setStep(2), 1600));
+    timers.push(window.setTimeout(() => setStep(3), 2200));
+    timers.push(window.setTimeout(onDone, 3200));
+    return () => { timers.forEach(clearTimeout); };
+  }, [show, onDone]);
+  if (!show) return null;
+  const cursorAtTarget = step >= 1;
+  const showClickPulse = step === 2;
+  const showLoading = step >= 3;
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="absolute left-6 top-1/2 -translate-y-1/2 w-[46%] max-w-lg bg-black/60 border border-white/10 rounded-xl shadow-2xl backdrop-blur-sm">
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-white/10">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-300/80" />
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400/80" />
+          <span className="ml-3 text-xs text-gray-300">Files</span>
+        </div>
+        <div className="relative p-4 h-48 grid grid-cols-4 gap-4 content-start">
+          <div className="col-span-1 text-center">
+            <div className="mx-auto w-12 h-9 rounded-t-md bg-yellow-400/80 relative">
+              <div className="absolute -top-1 left-1 w-4 h-2 rounded-sm bg-yellow-300/90" />
+            </div>
+            <div className="text-[10px] text-gray-300 mt-1">Samples</div>
+          </div>
+          <div className={`col-span-1 text-center ${showClickPulse ? 'scale-[1.03]' : ''} transition-transform`}>
+            <div className={`mx-auto w-10 h-12 bg-white/80 rounded-sm relative ${showClickPulse ? 'ring-2 ring-myai-accent' : ''}`}>
+              <div className="absolute top-0 right-0 w-0 h-0 border-l-8 border-l-transparent border-t-8 border-t-gray-200" />
+              <div className="absolute inset-x-1 bottom-1 h-1.5 bg-gray-300" />
+            </div>
+            <div className="text-[10px] text-gray-300 mt-1">track.wav</div>
+          </div>
+          {showLoading && (
+            <div className="absolute right-4 bottom-3 flex items-center gap-2 text-xs text-gray-200">
+              <span className="inline-block size-3 rounded-full border-2 border-white/30 border-t-transparent animate-spin" />
+              Loading...
+            </div>
+          )}
+          <div
+            className="absolute w-3 h-3 bg-white rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.4)]"
+            style={{ left: cursorAtTarget ? '36%' : '8%', top: cursorAtTarget ? '44%' : '70%', transition: 'left 700ms ease, top 700ms ease' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Hero() {
   const [boot, setBoot] = useState(true);
+  const [leftWin, setLeftWin] = useState(false);
   const [invite, setInvite] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setInvite(true), 5200);
-    return () => clearTimeout(t);
-  }, []);
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-bg-dark/50 to-myai-bg-dark z-10 pointer-events-none" />
-  <BootOverlay show={boot} onDone={() => setBoot(false)} />
+    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-bg-dark/50 to-myai-bg-dark z-10 pointer-events-none" />
+  <BootOverlay show={boot} onDone={() => { setBoot(false); setLeftWin(true); }} />
+  <LeftFileWindow show={leftWin && !boot} onDone={() => { setLeftWin(false); setInvite(true); }} />
   {/* keyframes for scroll animation */}
   <style>{`@keyframes scroll { from { transform: translateY(0); } to { transform: translateY(-30%); } }`}</style>
       
@@ -104,7 +156,7 @@ export default function Hero() {
             className="font-display text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight"
           >
             <span className="relative inline-block align-top">
-              <span className="absolute -top-4 md:-top-5 left-0 text-[10px] md:text-[11px] font-black tracking-tight leading-none uppercase text-white/90">
+              <span className="absolute -top-1 md:-top-1 left-0.5 text-[10px] md:text-[11px] font-black tracking-tight leading-none uppercase text-white/90">
                 MyAiPlug™
               </span>
               <span className="gradient-text block">NoDAW</span>
@@ -195,7 +247,7 @@ export default function Hero() {
           </svg>
         </div>
       </motion.div>
-      <DemoInviteModal open={invite && !boot} onClose={() => setInvite(false)} />
+      <DemoInviteModal open={invite && !boot && !leftWin} onClose={() => setInvite(false)} />
     </section>
   );
 }
