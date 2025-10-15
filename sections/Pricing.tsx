@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 
 const SaleRibbon = dynamic(() => import('@/components/SaleRibbon'), { ssr: false });
 const GeometryParticles = dynamic(() => import('@/components/GeometryParticles'), { ssr: false });
+const ConnectedParticles = dynamic(() => import('@/components/ConnectedParticles'), { ssr: false });
 
 const plans = [
   {
@@ -108,8 +109,8 @@ export default function Pricing() {
               <div className="pointer-events-none absolute -inset-8 opacity-0 group-hover:opacity-40 transition-opacity duration-500 blur-3xl bg-gradient-to-br from-myai-primary/20 via-myai-accent/10 to-transparent" />
               {plan.highlighted && (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                  <div className="absolute inset-0 opacity-60 mix-blend-screen">
-                    <GeometryParticles />
+                  <div className="absolute inset-0 opacity-70 mix-blend-screen">
+                    <ConnectedParticles hue={205} />
                   </div>
                 </div>
               )}
@@ -147,7 +148,8 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-
+              {/* Divider above CTA for consistent button alignment */}
+              <div className="border-t border-white/10 pt-6 mt-2" />
               <button
                 className={`relative w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 overflow-hidden ${
                   plan.highlighted

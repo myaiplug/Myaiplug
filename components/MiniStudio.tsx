@@ -21,6 +21,9 @@ export default function MiniStudio() {
   const toastTimerRef = useRef<number | null>(null);
   const engineRef = useRef<ReturnType<typeof getAudioEngine> | null>(null);
   const animFrameRef = useRef<number | undefined>(undefined);
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState("");
 
   // Simple helper copy for tooltips (fallback to module.info)
   const TOOLTIP: Record<string, string> = {
@@ -209,6 +212,8 @@ export default function MiniStudio() {
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        // After successful download, show discount modal
+        setTimeout(() => setShowDiscount(true), 200);
       }
     }
   };
@@ -487,6 +492,42 @@ export default function MiniStudio() {
           </div>
         </motion.div>
       </div>
+      {showDiscount && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDiscount(false)} />
+          <div className="relative z-[71] w-[92%] max-w-md bg-myai-bg-panel/95 border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <h3 className="text-2xl font-bold mb-1">You're ready. Here's 25% off.</h3>
+            <p className="text-gray-300 mb-4">Enter your name and email to receive your discount code instantly.</p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                placeholder="Name"
+                className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 focus:border-myai-primary outline-none"
+              />
+              <input
+                type="email"
+                value={buyerEmail}
+                onChange={(e) => setBuyerEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 focus:border-myai-primary outline-none"
+              />
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-gray-400">Promo Code</div>
+                <div className="text-lg font-mono font-bold text-myai-accent-warm">NODAW25OFF</div>
+              </div>
+              <button
+                onClick={() => setShowDiscount(false)}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold"
+              >Copy & Continue</button>
+            </div>
+            <p className="mt-3 text-[11px] text-gray-500">By continuing, you agree to receive your code via email. You can unsubscribe anytime.</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
