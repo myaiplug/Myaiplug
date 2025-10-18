@@ -53,7 +53,16 @@ Each module includes:
 - A/B dry/processed comparison
 - Visual feedback
 
-Replace audio loops in `/public/assets/loops/` with your own (dry.wav, warmth_fx.wav)
+### 🎚️ Replacing Demo Audio
+
+Want to use your own audio loops? See **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed instructions on:
+- Audio file specifications (format, sample rate, bit depth)
+- Step-by-step replacement guide
+- Converting audio files with FFmpeg/Audacity
+- Troubleshooting common issues
+- Creating great demo loops
+
+**Quick Start**: Replace `/public/assets/loops/dry.wav` with your own seamless loop (WAV, 44100Hz, 16-bit stereo, 2-8 seconds)
 
 ## 🎨 Branding
 
