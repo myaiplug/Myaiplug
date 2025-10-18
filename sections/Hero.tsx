@@ -35,12 +35,25 @@ function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
     <div className="absolute inset-0 z-0 pointer-events-none">
       <div className="absolute inset-0 bg-black/35" />
       <pre className="absolute right-6 top-1/2 -translate-y-1/2 text-green-300/90 text-[10px] md:text-xs bg-black/60 border border-white/10 rounded-lg p-4 w-[54%] max-w-xl overflow-hidden shadow-2xl h-[46%] md:h-[54%]">
-{` _   _       ____    ____        _
-| \ | | ___ |  _ \\  / ___| _ __(_)_ __   __ _
-|  \| |/ _ \\| | | | \\___ \\| '__| | '_ \\ / _
-| |\\  | (_) | |_| |  ___) | |  | | | | | (_)
-|_| \\_|\\___/|____/  |____/|_|  |_|_| |_|\\__, |
-                                            |___/`}
+                                                                                                                     
+                                                                                                                     
+NNNNNNNN        NNNNNNNN                 DDDDDDDDDDDDD                                                               
+N:::::::N       N::::::N                 D::::::::::::DDD                                                            
+N::::::::N      N::::::N                 D:::::::::::::::DD                                                          
+N:::::::::N     N::::::N                 DDD:::::DDDDD:::::D                                                         
+N::::::::::N    N::::::N   ooooooooooo     D:::::D    D:::::D  aaaaaaaaaaaaawwwwwww           wwwww           wwwwwww
+N:::::::::::N   N::::::N oo:::::::::::oo   D:::::D     D:::::D a::::::::::::aw:::::w         w:::::w         w:::::w 
+N:::::::N::::N  N::::::No:::::::::::::::o  D:::::D     D:::::D aaaaaaaaa:::::aw:::::w       w:::::::w       w:::::w  
+N::::::N N::::N N::::::No:::::ooooo:::::o  D:::::D     D:::::D          a::::a w:::::w     w:::::::::w     w:::::w   
+N::::::N  N::::N:::::::No::::o     o::::o  D:::::D     D:::::D   aaaaaaa:::::a  w:::::w   w:::::w:::::w   w:::::w    
+N::::::N   N:::::::::::No::::o     o::::o  D:::::D     D:::::D aa::::::::::::a   w:::::w w:::::w w:::::w w:::::w     
+N::::::N    N::::::::::No::::o     o::::o  D:::::D     D:::::Da::::aaaa::::::a    w:::::w:::::w   w:::::w:::::w      
+N::::::N     N:::::::::No::::o     o::::o  D:::::D    D:::::Da::::a    a:::::a     w:::::::::w     w:::::::::w       
+N::::::N      N::::::::No:::::ooooo:::::oDDD:::::DDDDD:::::D a::::a    a:::::a      w:::::::w       w:::::::w        
+N::::::N       N:::::::No:::::::::::::::oD:::::::::::::::DD  a:::::aaaa::::::a       w:::::w         w:::::w         
+N::::::N        N::::::N oo:::::::::::oo D::::::::::::DDD     a::::::::::aa:::a       w:::w           w:::w          
+NNNNNNNN         NNNNNNN   ooooooooooo   DDDDDDDDDDDDD         aaaaaaaaaa  aaaa        www             www       
+                                            
 
         <div className="mt-2 overflow-hidden h-full">
           <div className="animate-[scroll_24s_linear_forwards] space-y-1">
