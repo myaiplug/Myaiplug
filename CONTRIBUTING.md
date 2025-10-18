@@ -2,6 +2,24 @@
 
 Thank you for your interest in contributing to MyAiPlug™ NoDAW! This guide will help you understand how to add or replace demo audio examples.
 
+## 📖 Table of Contents
+
+- [Demo Audio Files](#-demo-audio-files)
+  - [Required Files](#required-files)
+  - [Audio File Specifications](#audio-file-specifications)
+  - [Recommended Audio Characteristics](#recommended-audio-characteristics)
+- [How to Replace Demo Audio](#-how-to-replace-demo-audio)
+  - [Step 1: Prepare Your Audio File](#step-1-prepare-your-audio-file)
+  - [Step 2: Replace the File](#step-2-replace-the-file)
+  - [Step 3: Verify the Audio](#step-3-verify-the-audio)
+  - [Step 4: Test the Demo](#step-4-test-the-demo)
+  - [Step 5: Commit Your Changes](#step-5-commit-your-changes)
+- [Converting Audio Files](#-converting-audio-files)
+- [Creating Great Demo Loops](#️-creating-great-demo-loops)
+- [Troubleshooting](#-troubleshooting)
+- [Code Changes](#-code-changes)
+- [Need Help?](#-need-help)
+
 ## 📁 Demo Audio Files
 
 The interactive demo uses audio loop files located in `/public/assets/loops/`. These files are loaded by the Web Audio API and processed in real-time.
