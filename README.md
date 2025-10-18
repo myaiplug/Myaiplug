@@ -4,6 +4,8 @@
 
 ## 📚 Documentation
 
+→ **[Documentation Index](DOCS_INDEX.md)** - Start here for all guides
+
 - **[Full Documentation](readme.md)** - Complete feature guide and setup instructions
 - **[Contributing Guide](CONTRIBUTING.md)** - How to replace demo audio files
 - **[Quick Audio Guide](AUDIO_GUIDE.md)** - Fast reference for audio specifications
