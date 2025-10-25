@@ -8,6 +8,10 @@ Welcome to MyAiPlug™ NoDAW documentation! Find what you need quickly:
 → **[AUDIO_GUIDE.md](AUDIO_GUIDE.md)** - Quick start (2 minutes)  
 → **[CONTRIBUTING.md](CONTRIBUTING.md)** - Complete guide (detailed)
 
+### Learn Audio Effects Processing
+→ **[AUDIO_EFFECTS_GUIDE.md](AUDIO_EFFECTS_GUIDE.md)** - Command-line audio effects recipes  
+→ **[docs/guides/](docs/guides/)** - Detailed category guides (EQ, Dynamics, Reverb, etc.)
+
 ### Learn About the Project
 → **[readme.md](readme.md)** - Full documentation with features and setup
 
@@ -21,6 +25,7 @@ Welcome to MyAiPlug™ NoDAW documentation! Find what you need quickly:
 | **[README.md](README.md)** | Quick overview & navigation | First-time visitors |
 | **[readme.md](readme.md)** | Full project documentation | Understanding features |
 | **[AUDIO_GUIDE.md](AUDIO_GUIDE.md)** | Quick audio replacement steps | Fast audio swap |
+| **[AUDIO_EFFECTS_GUIDE.md](AUDIO_EFFECTS_GUIDE.md)** | Command-line audio effects guide | Audio processing & production |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Detailed contribution guide | In-depth instructions |
 
 ## 🔍 Quick Answers
