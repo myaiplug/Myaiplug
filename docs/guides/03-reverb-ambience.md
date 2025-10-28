@@ -577,8 +577,8 @@ with AudioFile('input.wav') as f:
 # Resample IR if needed
 if ir_samplerate != samplerate:
     from pedalboard import Resample
-    ir_board = Pedalboard([Resample(target_sample_rate=samplerate)])
-    impulse_response = ir_board(impulse_response, ir_samplerate)
+    resample_board = Pedalboard([Resample(target_sample_rate=samplerate)])
+    impulse_response = resample_board(impulse_response, ir_samplerate)
 
 effected = board(audio, samplerate)
 
@@ -719,6 +719,10 @@ from pedalboard import Pedalboard, Reverb, Compressor
 from pedalboard.io import AudioFile
 import numpy as np
 
+# Note: This example uses scipy for smooth envelope detection.
+# Install with: pip install scipy
+# Alternative: Use simpler numpy-based moving average for envelope
+
 # Sidechain-style reverb ducking
 with AudioFile('input.wav') as f:
     audio = f.read(f.frames)
@@ -735,10 +739,15 @@ wet = board(audio, samplerate)
 
 # Calculate envelope from dry signal
 envelope = np.abs(dry)
-# Smooth the envelope
+
+# Smooth the envelope (requires scipy)
 from scipy import signal
 b, a = signal.butter(2, 0.01)
 envelope = signal.filtfilt(b, a, envelope, axis=1)
+
+# Alternative numpy-only approach (simpler):
+# window_size = int(samplerate * 0.01)  # 10ms window
+# envelope = np.convolve(envelope[0], np.ones(window_size)/window_size, mode='same')
 
 # Duck reverb based on input level
 threshold = 0.1
