@@ -78,8 +78,8 @@ Each guide provides recipes in three quality tiers:
 
 - **FFmpeg**: Swiss army knife for audio/video processing
 - **SoX**: Sound eXchange, audio manipulation
+- **Pedalboard**: Spotify's Python audio effects library (full examples)
 - **Rubberband**: Time-stretching and pitch-shifting
-- **Python Pedalboard**: Spotify's audio effects library (mentioned)
 
 ## 📖 How to Use These Guides
 
