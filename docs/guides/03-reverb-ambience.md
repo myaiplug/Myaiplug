@@ -745,9 +745,10 @@ from scipy import signal
 b, a = signal.butter(2, 0.01)
 envelope = signal.filtfilt(b, a, envelope, axis=1)
 
-# Alternative numpy-only approach (simpler):
+# Alternative numpy-only approach (simpler, works for mono or stereo):
 # window_size = int(samplerate * 0.01)  # 10ms window
-# envelope = np.convolve(envelope[0], np.ones(window_size)/window_size, mode='same')
+# for ch in range(envelope.shape[0]):
+#     envelope[ch] = np.convolve(envelope[ch], np.ones(window_size)/window_size, mode='same')
 
 # Duck reverb based on input level
 threshold = 0.1
