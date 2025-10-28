@@ -12,6 +12,13 @@
 5. [Spring Reverb](#spring-reverb)
 6. [Ambience & Early Reflections](#ambience--early-reflections)
 7. [Creative Reverbs](#creative-reverbs)
+8. [Convolution Reverb](#convolution-reverb)
+9. [Parameter Automation](#parameter-automation)
+10. [Reverb Techniques](#reverb-techniques)
+11. [Reverb by Source](#reverb-by-source)
+12. [Best Practices](#best-practices)
+13. [Tools Comparison](#tools-comparison)
+14. [Common Problems](#common-problems)
 
 ---
 
