@@ -500,18 +500,20 @@ with AudioFile('audio.wav') as f:
 
 with AudioFile('trigger.wav') as f:
     trigger = f.read(f.frames)
-    # Ensure same length (simple truncation; consider padding shorter signal for production)
+    # Ensure same length (truncates longer signal - data loss)
+    # For production, consider zero-padding the shorter signal instead
     min_len = min(audio.shape[1], trigger.shape[1])
     audio = audio[:, :min_len]
     trigger = trigger[:, :min_len]
 
 # Detect trigger envelope
 trigger_env = np.abs(trigger).max(axis=0)
-threshold = 0.05  # -30dB roughly
+threshold = 0.05  # Approximately -26dB (20*log10(0.05))
 gate = (trigger_env > threshold).astype(float)
 
 # Smooth gate with attack/release (5ms attack, 100ms release)
-# Note: For long files, consider scipy.signal.lfilter for better performance
+# Note: This O(n) loop can be slow for files longer than a few minutes
+# For production, use scipy.signal.lfilter or vectorized NumPy operations
 attack_samples = int(0.005 * samplerate)
 release_samples = int(0.1 * samplerate)
 
