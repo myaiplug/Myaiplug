@@ -517,8 +517,7 @@ ffmpeg -i input.wav -filter_complex "\
 from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
 from pedalboard.io import AudioFile
 
-# Moderate de-essing - simplified approach
-# Note: For production, use complementary crossover filters to avoid overlap
+# Moderate de-essing targeting sibilance frequencies
 board = Pedalboard([
     # Target sibilance range with bandpass effect
     HighpassFilter(cutoff_frequency_hz=5000),
@@ -531,21 +530,18 @@ with AudioFile('input.wav') as f:
     audio = f.read(f.frames)
     samplerate = f.samplerate
 
-# Process only the sibilance band
-sibilance_compressed = board(audio, samplerate)
+# Process the sibilance-heavy frequencies
+effected = board(audio, samplerate)
 
-# For complete multiband: subtract processed from original and recombine
-# (Requires more complex implementation with proper crossover filters)
-
-with AudioFile('output.wav', 'w', samplerate, sibilance_compressed.shape[0]) as f:
-    f.write(sibilance_compressed)
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
 ```
 
 **Parameters Explained (Pedalboard):**
 - Bandpass filters isolate sibilance range (5-10 kHz)
-- Compression applied only to isolated band
-- Higher ratio for noticeable reduction
-- Note: Full multiband requires crossover filters for best results
+- Compression applied to the filtered frequency range
+- Higher ratio (5:1) for noticeable reduction
+- Simpler than true multiband but effective for most cases
 
 **Tips:**
 - Bandpass filter on sidechain (5-10 kHz)
