@@ -12,6 +12,9 @@
 5. [Glitch Effects](#glitch-effects)
 6. [Looping & Stuttering](#looping--stuttering)
 7. [Experimental Processing](#experimental-processing)
+8. [Best Practices](#best-practices)
+9. [Tool Comparison](#tool-comparison-ffmpeg-vs-sox-vs-pedalboard)
+10. [Common Applications](#common-applications)
 
 ---
 
