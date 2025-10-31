@@ -117,7 +117,8 @@ from pedalboard.io import AudioFile
 
 # Tempo-synced delay (dotted eighth at 120 BPM = 375ms)
 bpm = 120
-delay_time = 45000 / bpm / 1000  # Convert to seconds
+# Formula: (60 seconds / BPM) * 1.5 (dotted eighth) = 45000ms / BPM
+delay_time = 45000 / bpm / 1000  # Convert to seconds (0.375s at 120 BPM)
 
 board = Pedalboard([
     Delay(delay_seconds=delay_time, feedback=0.4, mix=0.35)
@@ -231,9 +232,10 @@ with AudioFile('input.wav') as f:
 # Process and create ping-pong effect
 effected = board(audio, samplerate)
 
-# Alternate delays between L/R channels
-if effected.shape[0] == 2:  # Stereo
-    # Slightly offset right channel delay for ping-pong
+# Alternate delays between L/R channels (if stereo)
+# Note: Pedalboard audio shape is (channels, samples)
+if len(effected.shape) == 2 and effected.shape[0] == 2:  # Stereo
+    # Slightly offset right channel delay for ping-pong effect
     delay_samples = int(0.2 * samplerate)
     effected[1] = np.roll(effected[1], delay_samples)
 
@@ -454,9 +456,10 @@ from pedalboard.io import AudioFile
 
 # Rhythmic multi-tap at 120 BPM
 bpm = 120
-quarter = 60000 / bpm / 1000
-eighth = 30000 / bpm / 1000
-sixteenth = 15000 / bpm / 1000
+# Formula: (60 seconds / BPM) * note_value / 1000 to convert to seconds
+quarter = 60000 / bpm / 1000    # Quarter note: 0.5s at 120 BPM
+eighth = 30000 / bpm / 1000      # Eighth note: 0.25s at 120 BPM
+sixteenth = 15000 / bpm / 1000   # Sixteenth note: 0.125s at 120 BPM
 
 board = Pedalboard([
     Delay(delay_seconds=quarter, feedback=0.4, mix=0.2),
