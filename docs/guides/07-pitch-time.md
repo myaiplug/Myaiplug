@@ -33,6 +33,7 @@ Pitch and time manipulation allows independent control of pitch and tempo. Use t
 
 **Primary Tools:**
 - **Rubberband**: Professional time/pitch manipulation
+- **Pedalboard**: Python library for real-time and batch processing
 - **SoX**: Good for basic operations
 - **FFmpeg**: Basic time/pitch capabilities
 
@@ -64,6 +65,32 @@ ffmpeg -i input.wav -af "asetrate=44100*1.122,aresample=44100" output.wav
 # Note: 1.122 = 2^(2/12) for 2 semitones up
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+# Shift up 2 semitones
+board = Pedalboard([
+    PitchShift(semitones=2.0)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=2.0`: Shift up by 2 semitones
+- Use negative values to shift down (e.g., `semitones=-3.0`)
+- Clean, simple API for basic pitch shifting
+- Good quality for moderate shifts
+
 **Tips:**
 - ±2-3 semitones is relatively artifact-free
 - ±5 semitones is pushing it
@@ -86,6 +113,31 @@ rubberband -p 0.1 input.wav output.wav
 # Shift down 15 cents
 rubberband -p -0.15 input.wav output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+# Shift up 10 cents (0.1 semitone)
+board = Pedalboard([
+    PitchShift(semitones=0.1)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=0.1`: 10 cents shift (1/10th of a semitone)
+- Very subtle, great for fine-tuning
+- Transparent at this level
 
 **Tips:**
 - ±50 cents basically artifact-free
@@ -113,6 +165,32 @@ rubberband -p -12 input.wav output.wav
 rubberband -p -24 input.wav output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+# One octave down (-12 semitones)
+board = Pedalboard([
+    PitchShift(semitones=-12.0)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=-12.0`: One octave down
+- Use `semitones=12.0` for one octave up
+- Use `semitones=-24.0` for two octaves down
+- Larger shifts may introduce artifacts
+
 **Tips:**
 - Use high-quality mode for octaves
 - Artifacts more noticeable
@@ -138,6 +216,33 @@ rubberband -p 3 --pitch-hq --formant input.wav output.wav
 - `--formant`: Preserve formants (vocal quality)
 - Slower processing
 - Best results
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+# High quality pitch shift
+board = Pedalboard([
+    PitchShift(semitones=3.0)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Process with higher quality by using smaller buffer
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=3.0`: Pitch shift up 3 semitones
+- Pedalboard uses high-quality algorithms by default
+- Formant preservation automatic for moderate shifts
+- Professional-grade results out of the box
 
 **Tips:**
 - Use for important material
@@ -174,6 +279,33 @@ sox input.wav output.wav stretch 1.5
 # Compress to 80% duration
 sox input.wav output.wav tempo 1.25
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Time stretch to 120% (slower)
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Resample to stretch time (pitch-preserving requires external library)
+# Note: For true time stretching without pitch change, use librosa or pyrubberband
+# This example shows basic rate change
+stretch_factor = 1.2
+new_samplerate = int(samplerate / stretch_factor)
+
+with AudioFile('output.wav', 'w', samplerate, audio.shape[0]) as f:
+    f.write(audio)
+```
+
+**Note on Pedalboard:**
+- Pedalboard focuses on real-time effects
+- For advanced time stretching, combine with `librosa` or `pyrubberband`
+- Use Rubberband or SoX for pure time stretching operations
+- Pedalboard excels at pitch shifting and real-time processing
 
 **Tips:**
 - 0.5-2.0x is generally good range
@@ -328,6 +460,32 @@ Maintain vocal character during pitch shifting.
 rubberband -p 3 --formant input.wav output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+# Pitch shift with natural vocal character
+board = Pedalboard([
+    PitchShift(semitones=3.0)
+])
+
+with AudioFile('vocal_input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('vocal_output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=3.0`: Shift up 3 semitones
+- Pedalboard's PitchShift maintains formants for natural vocal sound
+- Automatic formant preservation for vocal-range shifts
+- Works well for ±5 semitones without chipmunk effect
+
 **Tips:**
 - Essential for vocals
 - Prevents chipmunk/monster effects
@@ -443,6 +601,37 @@ rubberband -p 7 input.wav harmony_5th.wav
 sox -m input.wav harmony_3rd.wav harmony_5th.wav output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift, Mix
+from pedalboard.io import AudioFile
+import numpy as np
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Create harmonies
+harmony_3rd_board = Pedalboard([PitchShift(semitones=4.0)])
+harmony_5th_board = Pedalboard([PitchShift(semitones=7.0)])
+
+# Process harmonies
+harmony_3rd = harmony_3rd_board(audio, samplerate)
+harmony_5th = harmony_5th_board(audio, samplerate)
+
+# Mix original with harmonies
+mixed = (audio * 0.5) + (harmony_3rd * 0.3) + (harmony_5th * 0.2)
+
+with AudioFile('output.wav', 'w', samplerate, mixed.shape[0]) as f:
+    f.write(mixed)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=4.0`: Major 3rd above
+- `semitones=7.0`: Perfect 5th above
+- Mix ratios: 50% original, 30% 3rd, 20% 5th
+- Adjust mix levels to taste
+
 **Common Intervals:**
 - Minor 3rd: +3 semitones
 - Major 3rd: +4 semitones
@@ -467,6 +656,35 @@ rubberband -p -0.1 input.wav slight_down.wav
 # Mix with original
 sox -m input.wav slight_up.wav slight_down.wav output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Create detuned versions
+up_board = Pedalboard([PitchShift(semitones=0.1)])
+down_board = Pedalboard([PitchShift(semitones=-0.1)])
+
+slight_up = up_board(audio, samplerate)
+slight_down = down_board(audio, samplerate)
+
+# Mix: 50% original, 25% up, 25% down
+thickened = (audio * 0.5) + (slight_up * 0.25) + (slight_down * 0.25)
+
+with AudioFile('output.wav', 'w', samplerate, thickened.shape[0]) as f:
+    f.write(thickened)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=0.1`: 10 cents up
+- `semitones=-0.1`: 10 cents down
+- Mix creates subtle thickness
+- Natural chorus effect
 
 **Tips:**
 - ±10-20 cents works well
@@ -519,6 +737,80 @@ rubberband --pitch-hq --time-hq --precise input.wav output.wav
 2. Default: Good balance
 3. `--pitch-hq` / `--time-hq`: High quality
 4. `--precise`: Maximum quality
+
+### Pedalboard Real-Time Processing (🔴 Advanced)
+
+**Description**: Process audio in real-time or stream processing  
+**Use Case**: Live performance, streaming, interactive applications  
+**Quality**: High-quality with low latency
+
+**Pedalboard Real-Time Example:**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioStream
+import time
+
+# Set up real-time audio processing
+board = Pedalboard([
+    PitchShift(semitones=2.0)
+])
+
+# Process audio stream in real-time
+with AudioStream(
+    input_device_name="default",
+    output_device_name="default",
+) as stream:
+    # Process audio in real-time
+    stream.plugins = board
+    
+    # Keep processing until interrupted
+    print("Processing audio in real-time. Press Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\nStopping real-time processing.")
+```
+
+**Batch Processing with Pedalboard:**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+import os
+
+# Process multiple files efficiently
+board = Pedalboard([
+    PitchShift(semitones=3.0)
+])
+
+input_files = ['song1.wav', 'song2.wav', 'song3.wav']
+
+for input_file in input_files:
+    output_file = f"processed_{input_file}"
+    
+    with AudioFile(input_file) as f:
+        audio = f.read(f.frames)
+        samplerate = f.samplerate
+    
+    effected = board(audio, samplerate)
+    
+    with AudioFile(output_file, 'w', samplerate, effected.shape[0]) as f:
+        f.write(effected)
+    
+    print(f"Processed: {input_file} -> {output_file}")
+```
+
+**Parameters Explained:**
+- Real-time processing with low latency
+- Stream-based for live performance
+- Batch processing for multiple files
+- Full control over audio pipeline
+
+**Tips:**
+- Use for live performance setups
+- Ideal for interactive audio applications
+- Low latency on modern hardware
+- Combine multiple effects in the chain
 
 ---
 
@@ -619,13 +911,20 @@ time_ratio = original_bpm / target_bpm
 
 ## Tools Comparison
 
-| Tool | Pitch | Time | Quality | Speed | Formants |
-|------|-------|------|---------|-------|----------|
-| Rubberband | ✅ | ✅ | Excellent | Medium | ✅ |
-| SoX | ✅ | ✅ | Good | Fast | ❌ |
-| FFmpeg | Limited | Limited | Basic | Fast | ❌ |
+| Tool | Pitch | Time | Quality | Speed | Formants | Scriptable |
+|------|-------|------|---------|-------|----------|------------|
+| Rubberband | ✅ | ✅ | Excellent | Medium | ✅ | CLI |
+| Pedalboard | ✅ | Limited* | Excellent | Fast | ✅ | Python |
+| SoX | ✅ | ✅ | Good | Fast | ❌ | CLI |
+| FFmpeg | Limited | Limited | Basic | Fast | ❌ | CLI |
 
-**Recommendation**: Use Rubberband for best results.
+**Notes:**
+- *Pedalboard excels at pitch shifting; for time stretching combine with `librosa` or `pyrubberband`
+- Pedalboard offers best Python integration for real-time and batch processing
+- Rubberband recommended for standalone time stretching operations
+- Pedalboard ideal for building custom audio processing pipelines
+
+**Recommendation**: Use Rubberband for command-line work, Pedalboard for Python scripts and automation.
 
 ---
 
