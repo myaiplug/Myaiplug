@@ -280,32 +280,38 @@ sox input.wav output.wav stretch 1.5
 sox input.wav output.wav tempo 1.25
 ```
 
-**Pedalboard (Python):**
+**Pedalboard with Pyrubberband (Python):**
 ```python
-from pedalboard import Pedalboard
+# Pedalboard doesn't have built-in time stretching without pitch change
+# Use pyrubberband for time stretching, then Pedalboard for additional effects
+import pyrubberband as pyrb
+from pedalboard import Pedalboard, Compressor
 from pedalboard.io import AudioFile
 import numpy as np
 
-# Time stretch to 120% (slower)
+# Read audio
 with AudioFile('input.wav') as f:
     audio = f.read(f.frames)
     samplerate = f.samplerate
 
-# Resample to stretch time (pitch-preserving requires external library)
-# Note: For true time stretching without pitch change, use librosa or pyrubberband
-# This example shows basic rate change
-stretch_factor = 1.2
-new_samplerate = int(samplerate / stretch_factor)
+# Time stretch to 120% (slower) using pyrubberband
+stretched = pyrb.time_stretch(audio.T, samplerate, 1.2)
 
-with AudioFile('output.wav', 'w', samplerate, audio.shape[0]) as f:
-    f.write(audio)
+# Optional: Apply additional Pedalboard effects
+board = Pedalboard([
+    Compressor(threshold_db=-10, ratio=2.0)
+])
+effected = board(stretched.T, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
 ```
 
 **Note on Pedalboard:**
-- Pedalboard focuses on real-time effects
-- For advanced time stretching, combine with `librosa` or `pyrubberband`
-- Use Rubberband or SoX for pure time stretching operations
-- Pedalboard excels at pitch shifting and real-time processing
+- Pedalboard focuses on real-time effects and pitch shifting
+- For pure time stretching, combine with `librosa.effects.time_stretch()` or `pyrubberband`
+- Use Rubberband CLI or SoX for standalone time stretching operations
+- Pedalboard excels at pitch shifting, effects chains, and real-time processing
 
 **Tips:**
 - 0.5-2.0x is generally good range
@@ -603,7 +609,7 @@ sox -m input.wav harmony_3rd.wav harmony_5th.wav output.wav
 
 **Pedalboard (Python):**
 ```python
-from pedalboard import Pedalboard, PitchShift, Mix
+from pedalboard import Pedalboard, PitchShift
 from pedalboard.io import AudioFile
 import numpy as np
 
