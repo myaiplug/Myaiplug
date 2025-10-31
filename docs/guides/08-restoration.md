@@ -72,6 +72,33 @@ sox input.wav output.wav noisered noise-profile.prof 0.2
 - 0.1-0.3 is subtle
 - Higher values = more reduction but more artifacts
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, NoiseGate, HighpassFilter
+from pedalboard.io import AudioFile
+
+# Gentle noise reduction using noise gate
+board = Pedalboard([
+    HighpassFilter(cutoff_frequency_hz=80),
+    NoiseGate(threshold_db=-40, ratio=1.5, attack_ms=1, release_ms=100)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `threshold_db=-40`: Noise gate opens above -40dB
+- `ratio=1.5`: Gentle reduction ratio
+- `attack_ms=1`: Fast attack to preserve transients
+- `release_ms=100`: Smooth release to avoid pumping
+
 **Tips:**
 - Capture noise profile from silent section
 - Start with low amounts (0.1-0.3)
@@ -91,6 +118,33 @@ sox input.wav output.wav noisered noise-profile.prof 0.2
 # Moderate noise reduction
 sox input.wav output.wav noisered noise-profile.prof 0.4
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, NoiseGate, HighpassFilter, Compressor
+from pedalboard.io import AudioFile
+
+# Moderate noise reduction with gating and compression
+board = Pedalboard([
+    HighpassFilter(cutoff_frequency_hz=80),
+    NoiseGate(threshold_db=-35, ratio=4, attack_ms=1, release_ms=150),
+    Compressor(threshold_db=-20, ratio=2, attack_ms=5, release_ms=50)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `threshold_db=-35`: More aggressive gate threshold
+- `ratio=4`: Higher reduction ratio
+- Compressor helps even out remaining noise floor
 
 **Tips:**
 - 0.3-0.5 range for moderate reduction
@@ -114,6 +168,43 @@ sox temp1.wav output.wav noisered noise-profile.prof 0.3
 rm temp1.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, NoiseGate, HighpassFilter, Compressor, LowpassFilter
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Heavy noise reduction with multi-pass processing
+def multi_pass_noise_reduction(audio, samplerate, passes=2):
+    """Apply multiple passes of noise reduction"""
+    result = audio.copy()
+    
+    for i in range(passes):
+        board = Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=100),
+            NoiseGate(threshold_db=-30, ratio=6, attack_ms=0.5, release_ms=200),
+            Compressor(threshold_db=-18, ratio=3, attack_ms=5, release_ms=100)
+        ])
+        result = board(result, samplerate)
+    
+    return result
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = multi_pass_noise_reduction(audio, samplerate, passes=2)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `passes=2`: Two gentle passes for heavy reduction
+- `threshold_db=-30`: Aggressive threshold
+- `ratio=6`: High reduction ratio
+- Multi-pass approach reduces artifacts
+
 **Tips:**
 - Multiple gentle passes better than one extreme
 - 2-3 passes of 0.2-0.3 reduction
@@ -135,6 +226,37 @@ ffmpeg -i input.wav -af "\
 highpass=f=80,\
 agate=threshold=-45dB:ratio=9:attack=10:release=200:knee=3dB" output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, NoiseGate, HighpassFilter, LowShelfFilter
+from pedalboard.io import AudioFile
+
+# Spectral noise gating approach
+board = Pedalboard([
+    # Remove rumble
+    HighpassFilter(cutoff_frequency_hz=80),
+    # Reduce sub-bass mud
+    LowShelfFilter(cutoff_frequency_hz=200, gain_db=-3, q=0.7),
+    # Gate for transient preservation
+    NoiseGate(threshold_db=-45, ratio=9, attack_ms=0.1, release_ms=200)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Combines filtering and gating for spectral approach
+- Fast attack preserves transients
+- High ratio for clean gating
+- Low shelf reduces low-frequency noise
 
 **Tips:**
 - Combine high-pass filtering with gating
@@ -165,6 +287,33 @@ sox input.wav output.wav declick -n 1
 - More passes = more aggressive
 - Start with 1 pass
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, HighpassFilter, Compressor
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Light de-click using gentle compression
+board = Pedalboard([
+    # Fast compressor to tame transient peaks
+    Compressor(threshold_db=-15, ratio=4, attack_ms=0.01, release_ms=50)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `attack_ms=0.01`: Ultra-fast attack catches clicks
+- `ratio=4`: Moderate compression on peaks
+- Preserves transients while reducing clicks
+
 **Tips:**
 - One pass usually sufficient
 - Preserves drum transients
@@ -185,6 +334,34 @@ sox input.wav output.wav declick -n 1
 sox input.wav output.wav declick -n 2
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, Limiter
+from pedalboard.io import AudioFile
+
+# Standard de-click with compression and limiting
+board = Pedalboard([
+    # First stage: fast compression
+    Compressor(threshold_db=-18, ratio=6, attack_ms=0.005, release_ms=40),
+    # Second stage: limiter catches remaining peaks
+    Limiter(threshold_db=-1.0, release_ms=50)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Two-stage processing for better click removal
+- Ultra-fast attack on compressor
+- Limiter as safety net for remaining clicks
+
 **Tips:**
 - 2 passes for moderate clicks
 - Watch for transient loss
@@ -204,6 +381,47 @@ sox input.wav output.wav declick -n 2
 # Heavy de-click with multiple passes
 sox input.wav output.wav declick -n 3 declick -n 2
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, Limiter, HighShelfFilter
+from pedalboard.io import AudioFile
+
+# Heavy de-click with restoration
+def heavy_declick(audio, samplerate):
+    """Multi-stage aggressive de-clicking"""
+    # First pass
+    board1 = Pedalboard([
+        Compressor(threshold_db=-20, ratio=8, attack_ms=0.003, release_ms=30)
+    ])
+    stage1 = board1(audio, samplerate)
+    
+    # Second pass
+    board2 = Pedalboard([
+        Compressor(threshold_db=-15, ratio=6, attack_ms=0.005, release_ms=40),
+        Limiter(threshold_db=-0.5, release_ms=50),
+        # Restore high frequencies lost in processing
+        HighShelfFilter(cutoff_frequency_hz=8000, gain_db=2, q=0.7)
+    ])
+    stage2 = board2(stage1, samplerate)
+    
+    return stage2
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = heavy_declick(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Multiple passes with varying settings
+- Progressive compression ratios
+- High shelf restores brightness
+- Limiter prevents overshoot
 
 **Tips:**
 - Multiple stages with different settings
@@ -238,6 +456,34 @@ ffmpeg -i input.wav -filter_complex "\
 - `threshold=-25dB`: When de-essing starts
 - `ratio=3`: Gentle compression
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
+from pedalboard.io import AudioFile
+
+# Subtle de-esser using sidechain-style compression
+board = Pedalboard([
+    # Target sibilance frequency range with compression
+    Compressor(threshold_db=-25, ratio=3, attack_ms=1, release_ms=50)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Process with emphasis on high frequencies
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `threshold_db=-25`: Gentle threshold for transparency
+- `ratio=3`: Subtle compression ratio
+- `attack_ms=1`: Fast enough to catch sibilance
+- `release_ms=50`: Quick release for natural sound
+
 **Tips:**
 - 5-8 kHz for most sibilance
 - Adjust threshold to taste
@@ -262,6 +508,49 @@ ffmpeg -i input.wav -filter_complex "\
 -map "[out]" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Moderate de-essing with frequency-specific compression
+def multiband_deess(audio, samplerate):
+    """De-ess with band-specific processing"""
+    # Split into bands
+    low_board = Pedalboard([LowpassFilter(cutoff_frequency_hz=5000)])
+    high_board = Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=5000),
+        LowpassFilter(cutoff_frequency_hz=10000),
+        # Compress only the sibilance band
+        Compressor(threshold_db=-22, ratio=5, attack_ms=1, release_ms=40)
+    ])
+    top_board = Pedalboard([HighpassFilter(cutoff_frequency_hz=10000)])
+    
+    # Process each band
+    low = low_board(audio, samplerate)
+    mid = high_board(audio, samplerate)
+    high = top_board(audio, samplerate)
+    
+    # Mix bands back together
+    return low + mid + high
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = multiband_deess(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Splits audio into three bands
+- Only compresses sibilance range (5-10 kHz)
+- Higher ratio for noticeable reduction
+- Leaves lows and tops unaffected
+
 **Tips:**
 - Bandpass filter on sidechain (5-10 kHz)
 - Higher ratio (4-6:1)
@@ -285,6 +574,47 @@ ffmpeg -i input.wav -filter_complex "\
 [main][sidechain]sidechaincompress=threshold=-20dB:ratio=8:attack=0.5:release=30[out]" \
 -map "[out]" output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter, HighShelfFilter
+from pedalboard.io import AudioFile
+
+# Aggressive de-essing with air restoration
+def aggressive_deess(audio, samplerate):
+    """Heavy de-essing with high-frequency restoration"""
+    # Isolate and compress sibilance band
+    sibilance_board = Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=4500),
+        LowpassFilter(cutoff_frequency_hz=12000),
+        Compressor(threshold_db=-20, ratio=8, attack_ms=0.5, release_ms=30)
+    ])
+    
+    # Process sibilance
+    processed = sibilance_board(audio, samplerate)
+    
+    # Restore air frequencies
+    final_board = Pedalboard([
+        HighShelfFilter(cutoff_frequency_hz=12000, gain_db=2, q=0.7)
+    ])
+    
+    return final_board(processed, samplerate)
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = aggressive_deess(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Wider frequency range (4.5-12 kHz)
+- High ratio (8:1) for maximum reduction
+- Very fast attack (0.5ms)
+- High shelf restores air above 12 kHz
 
 **Tips:**
 - Wider frequency range
@@ -313,6 +643,53 @@ ffmpeg -i input.wav -filter_complex "\
 -map "[out]" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Professional multiband de-esser
+def professional_multiband_deess(audio, samplerate):
+    """Three-band de-esser with precise control"""
+    # Low band: Pass through unchanged
+    low_board = Pedalboard([LowpassFilter(cutoff_frequency_hz=5000)])
+    low_band = low_board(audio, samplerate)
+    
+    # Mid band (sibilance): Compress heavily
+    mid_board = Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=5000),
+        LowpassFilter(cutoff_frequency_hz=10000),
+        Compressor(threshold_db=-25, ratio=6, attack_ms=0.5, release_ms=40)
+    ])
+    mid_band = mid_board(audio, samplerate)
+    
+    # High band: Pass through with slight reduction
+    high_board = Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=10000),
+        Compressor(threshold_db=-30, ratio=2, attack_ms=5, release_ms=50)
+    ])
+    high_band = high_board(audio, samplerate)
+    
+    # Recombine bands
+    return low_band + mid_band + high_band
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = professional_multiband_deess(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Three independent bands with separate processing
+- Only sibilance band heavily compressed
+- Low band passes unaffected for body
+- High band lightly compressed for air
+
 **Tips:**
 - Only compress sibilance band (5-10 kHz)
 - Leave lows and highs unaffected
@@ -339,6 +716,34 @@ ffmpeg -i input.wav -af "equalizer=f=60:t=h:width=10:g=-40" output.wav
 # Remove 50 Hz hum (EU)
 ffmpeg -i input.wav -af "equalizer=f=50:t=h:width=10:g=-40" output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PeakFilter
+from pedalboard.io import AudioFile
+
+# Remove 60 Hz hum (US) with narrow notch filter
+board = Pedalboard([
+    PeakFilter(cutoff_frequency_hz=60, gain_db=-40, q=30)
+])
+
+# For 50 Hz hum (EU), use:
+# PeakFilter(cutoff_frequency_hz=50, gain_db=-40, q=30)
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `cutoff_frequency_hz=60`: Target fundamental hum
+- `gain_db=-40`: Deep cut for clean removal
+- `q=30`: Very high Q for narrow notch (minimal impact)
 
 **Tips:**
 - Very narrow notch filter
@@ -372,6 +777,38 @@ equalizer=f=300:t=h:width=10:g=-40" output.wav
 - 4th: 240 Hz
 - 5th: 300 Hz
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PeakFilter
+from pedalboard.io import AudioFile
+
+# Remove 60 Hz and harmonics
+board = Pedalboard([
+    PeakFilter(cutoff_frequency_hz=60, gain_db=-40, q=30),   # Fundamental
+    PeakFilter(cutoff_frequency_hz=120, gain_db=-40, q=30),  # 2nd harmonic
+    PeakFilter(cutoff_frequency_hz=180, gain_db=-40, q=30),  # 3rd harmonic
+    PeakFilter(cutoff_frequency_hz=240, gain_db=-40, q=30),  # 4th harmonic
+    PeakFilter(cutoff_frequency_hz=300, gain_db=-40, q=30),  # 5th harmonic
+])
+
+# For 50 Hz systems, use: 50, 100, 150, 200, 250 Hz
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Five notch filters targeting fundamental + harmonics
+- Each harmonic is multiple of fundamental
+- Very high Q maintains narrow bandwidth
+- Series processing for complete removal
+
 **Tips:**
 - Remove fundamental + 3-5 harmonics
 - Use spectrum analyzer to identify
@@ -398,6 +835,41 @@ equalizer=f=150:t=h:width=8:g=-35,\
 equalizer=f=180:t=h:width=8:g=-35" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PeakFilter, HighpassFilter
+from pedalboard.io import AudioFile
+
+# Complex hum removal: both 50 and 60 Hz + harmonics
+board = Pedalboard([
+    # Remove sub-sonic rumble first
+    HighpassFilter(cutoff_frequency_hz=40),
+    # 50 Hz and harmonics
+    PeakFilter(cutoff_frequency_hz=50, gain_db=-40, q=25),
+    PeakFilter(cutoff_frequency_hz=100, gain_db=-35, q=25),
+    PeakFilter(cutoff_frequency_hz=150, gain_db=-35, q=25),
+    # 60 Hz and harmonics
+    PeakFilter(cutoff_frequency_hz=60, gain_db=-40, q=25),
+    PeakFilter(cutoff_frequency_hz=120, gain_db=-35, q=25),
+    PeakFilter(cutoff_frequency_hz=180, gain_db=-35, q=25),
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- High-pass removes sub-sonic content first
+- Both 50 and 60 Hz fundamentals addressed
+- Harmonics of each frequency
+- Slightly lower Q to catch variations
+
 **Tips:**
 - Address multiple fundamental frequencies
 - May have both 50 and 60 Hz
@@ -421,6 +893,33 @@ Remove vinyl clicks and digital pops.
 # Light click removal
 sox input.wav output.wav declick
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Limiter, Compressor
+from pedalboard.io import AudioFile
+
+# Light click removal with gentle limiting
+board = Pedalboard([
+    Compressor(threshold_db=-12, ratio=4, attack_ms=0.01, release_ms=50),
+    Limiter(threshold_db=-0.3, release_ms=50)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Ultra-fast attack catches click peaks
+- Gentle compression preserves dynamics
+- Limiter as safety net
+- Transparent processing
 
 **Tips:**
 - Default settings work well
@@ -449,6 +948,52 @@ rm temp1.wav temp2.wav
 1. Click removal (2 passes)
 2. Noise reduction
 3. Gentle high-frequency boost (lost in cleaning)
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor, Limiter, NoiseGate, HighShelfFilter, PeakFilter
+from pedalboard.io import AudioFile
+
+# Multi-stage vinyl restoration
+def vinyl_restoration(audio, samplerate):
+    """Complete vinyl restoration chain"""
+    # Stage 1: Click removal
+    stage1 = Pedalboard([
+        Compressor(threshold_db=-18, ratio=6, attack_ms=0.005, release_ms=40),
+        Limiter(threshold_db=-1.0, release_ms=50)
+    ])
+    declick = stage1(audio, samplerate)
+    
+    # Stage 2: Noise reduction
+    stage2 = Pedalboard([
+        NoiseGate(threshold_db=-40, ratio=3, attack_ms=1, release_ms=150)
+    ])
+    denoise = stage2(declick, samplerate)
+    
+    # Stage 3: Restore brightness and warmth
+    stage3 = Pedalboard([
+        HighShelfFilter(cutoff_frequency_hz=8000, gain_db=2, q=0.7),
+        PeakFilter(cutoff_frequency_hz=2000, gain_db=1.5, q=1.5)
+    ])
+    restored = stage3(denoise, samplerate)
+    
+    return restored
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = vinyl_restoration(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Three-stage processing pipeline
+- De-click → Denoise → Restore
+- EQ restores lost frequencies
+- Professional vinyl transfer workflow
 
 **Tips:**
 - Process in stages
@@ -490,6 +1035,46 @@ loudnorm=I=-16:TP=-1.5:LRA=11" clean.wav
 rm temp*.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, HighpassFilter, NoiseGate, Compressor, Limiter, HighShelfFilter
+from pedalboard.io import AudioFile
+
+# Complete podcast cleanup workflow
+def podcast_cleanup(audio, samplerate):
+    """Professional podcast audio restoration"""
+    # Complete processing chain
+    board = Pedalboard([
+        # 1. Remove rumble
+        HighpassFilter(cutoff_frequency_hz=80),
+        # 2. Gate background noise
+        NoiseGate(threshold_db=-45, ratio=9, attack_ms=10, release_ms=200),
+        # 3. De-essing (multiband approach)
+        Compressor(threshold_db=-20, ratio=3, attack_ms=1, release_ms=50),
+        # 4. Level and dynamics
+        Compressor(threshold_db=-20, ratio=3, attack_ms=10, release_ms=100),
+        Limiter(threshold_db=-1.5, release_ms=100)
+    ])
+    
+    return board(audio, samplerate)
+
+with AudioFile('raw.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+clean = podcast_cleanup(audio, samplerate)
+
+with AudioFile('clean.wav', 'w', samplerate, clean.shape[0]) as f:
+    f.write(clean)
+```
+
+**Parameters Explained (Pedalboard):**
+- Single-pass complete workflow
+- High-pass removes rumble
+- Gate removes background noise
+- Compression evens out levels
+- Limiter prevents peaks
+
 **Workflow Steps:**
 1. Remove rumble
 2. Gate background noise
@@ -515,6 +1100,47 @@ equalizer=f=200:t=q:width=1.5:g=-2,\
 equalizer=f=3000:t=q:width=1.5:g=2,\
 loudnorm=I=-16:TP=-1" clean_vo.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, HighpassFilter, NoiseGate, Compressor, PeakFilter, LowShelfFilter, HighShelfFilter, Limiter
+from pedalboard.io import AudioFile
+
+# Voice-over cleanup for video
+def voiceover_cleanup(audio, samplerate):
+    """Professional voice-over processing"""
+    board = Pedalboard([
+        # 1. High-pass filter (rumble removal)
+        HighpassFilter(cutoff_frequency_hz=80),
+        # 2. Noise gate (background reduction)
+        NoiseGate(threshold_db=-40, ratio=9, attack_ms=10, release_ms=150),
+        # 3. Compression (consistency)
+        Compressor(threshold_db=-18, ratio=3, attack_ms=15, release_ms=150),
+        # 4. EQ (clarity and warmth)
+        LowShelfFilter(cutoff_frequency_hz=200, gain_db=-2, q=1.5),
+        PeakFilter(cutoff_frequency_hz=3000, gain_db=2, q=1.5),
+        # 5. Final limiting
+        Limiter(threshold_db=-1.0, release_ms=100)
+    ])
+    
+    return board(audio, samplerate)
+
+with AudioFile('voiceover.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+clean_vo = voiceover_cleanup(audio, samplerate)
+
+with AudioFile('clean_vo.wav', 'w', samplerate, clean_vo.shape[0]) as f:
+    f.write(clean_vo)
+```
+
+**Parameters Explained (Pedalboard):**
+- Complete single-pass voiceover chain
+- Removes rumble and background noise
+- Compression for consistent levels
+- EQ enhances clarity and presence
+- Limiter prevents clipping
 
 **Processing Chain:**
 1. High-pass filter (rumble)
@@ -546,12 +1172,207 @@ sox field.wav restored.wav \
   equalizer 3000 1.5q 1
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, HighpassFilter, NoiseGate, Compressor, Limiter, LowShelfFilter, PeakFilter
+from pedalboard.io import AudioFile
+
+# Field recording restoration
+def field_recording_restoration(audio, samplerate):
+    """Advanced outdoor/location recording cleanup"""
+    # Multi-stage approach for best results
+    
+    # Stage 1: Remove wind rumble
+    stage1 = Pedalboard([
+        HighpassFilter(cutoff_frequency_hz=100)
+    ])
+    dewind = stage1(audio, samplerate)
+    
+    # Stage 2: Noise reduction with adaptive gate
+    stage2 = Pedalboard([
+        NoiseGate(threshold_db=-35, ratio=6, attack_ms=1, release_ms=200)
+    ])
+    denoise = stage2(dewind, samplerate)
+    
+    # Stage 3: De-click wind pops
+    stage3 = Pedalboard([
+        Compressor(threshold_db=-20, ratio=6, attack_ms=0.01, release_ms=40),
+        Limiter(threshold_db=-1.0, release_ms=50)
+    ])
+    declick = stage3(denoise, samplerate)
+    
+    # Stage 4: Level and enhance clarity
+    stage4 = Pedalboard([
+        Compressor(threshold_db=-25, ratio=2.5, attack_ms=20, release_ms=150),
+        LowShelfFilter(cutoff_frequency_hz=200, gain_db=-1, q=1.5),
+        PeakFilter(cutoff_frequency_hz=3000, gain_db=1, q=1.5)
+    ])
+    final = stage4(declick, samplerate)
+    
+    return final
+
+with AudioFile('field.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+restored = field_recording_restoration(audio, samplerate)
+
+with AudioFile('restored.wav', 'w', samplerate, restored.shape[0]) as f:
+    f.write(restored)
+```
+
+**Parameters Explained (Pedalboard):**
+- Four-stage comprehensive restoration
+- Progressive noise reduction approach
+- Wind rumble and pops addressed
+- EQ restores clarity
+- Suitable for documentary work
+
 **Steps:**
 1. High-pass (wind rumble)
 2. Noise reduction
 3. De-click (wind pops)
 4. Compression (level)
 5. EQ (clarity)
+
+---
+
+## Tools Comparison
+
+### Quality Tier Comparison
+
+#### Basic Tier (🟢)
+**Best For**: Quick cleanup, good source material, podcasts, voice-overs
+
+| Tool | Strengths | Limitations | Quality Rating |
+|------|-----------|-------------|----------------|
+| **FFmpeg** | Fast, scriptable, good for simple tasks | Limited noise reduction | ⭐⭐⭐ |
+| **SoX** | Excellent noise profiling, versatile | Requires noise sample | ⭐⭐⭐⭐ |
+| **Pedalboard** | Real-time capable, easy to use, Python integration | Limited spectral tools | ⭐⭐⭐⭐ |
+
+**Typical Use Cases:**
+- Remove background hiss from good recordings
+- Simple hum removal (single frequency)
+- Light click removal from digital transfers
+- Gentle sibilance control
+
+**Expected Results:**
+- Transparent processing with minimal artifacts
+- 60-70% noise reduction
+- Natural sound preservation
+- Fast processing time
+
+---
+
+#### Intermediate Tier (🟡)
+**Best For**: Moderate issues, professional content, broadcast
+
+| Tool | Strengths | Limitations | Quality Rating |
+|------|-----------|-------------|----------------|
+| **FFmpeg** | Complex filter chains, multi-stage | CPU intensive | ⭐⭐⭐⭐ |
+| **SoX** | Multi-pass processing, excellent control | Steeper learning curve | ⭐⭐⭐⭐⭐ |
+| **Pedalboard** | Flexible chains, programmable | May need multiple passes | ⭐⭐⭐⭐ |
+
+**Typical Use Cases:**
+- Field recordings with moderate noise
+- Vinyl transfers with clicks and pops
+- Multi-frequency hum removal
+- Professional de-essing
+
+**Expected Results:**
+- Noticeable improvement with some artifacts
+- 70-85% noise reduction
+- Good balance of cleanup and quality
+- Moderate processing time
+
+---
+
+#### Advanced Tier (🔴)
+**Best For**: Heavy restoration, machine learning, archival work
+
+| Tool | Strengths | Limitations | Quality Rating |
+|------|-----------|-------------|----------------|
+| **FFmpeg** | Multi-stage workflows, automation | Not specialized for restoration | ⭐⭐⭐ |
+| **SoX** | Multi-pass mastery, precise control | Time-consuming | ⭐⭐⭐⭐⭐ |
+| **Pedalboard** | Python integration, ML-ready, real-time | Requires coding skills | ⭐⭐⭐⭐⭐ |
+
+**Typical Use Cases:**
+- Badly damaged recordings
+- Archival restoration work
+- Complex noise patterns
+- Machine learning-based approaches
+
+**Expected Results:**
+- Maximum reduction with acceptable artifacts
+- 85-95% noise reduction
+- Professional restoration quality
+- Longer processing time required
+
+**Advanced Techniques:**
+- Multi-pass processing with varying parameters
+- Spectral editing (external tools recommended)
+- Machine learning models (with Pedalboard)
+- Adaptive noise reduction algorithms
+
+---
+
+### Feature Comparison by Tool
+
+| Feature | FFmpeg | SoX | Pedalboard |
+|---------|--------|-----|------------|
+| **Noise Reduction** | Gate-based | Profile-based | Gate/Dynamic |
+| **De-clicking** | Limited | Excellent | Compression-based |
+| **De-essing** | Sidechain comp | Via filters | Built-in |
+| **Hum Removal** | Notch filters | Sinc filters | Peak filters |
+| **Batch Processing** | ✅ Excellent | ✅ Excellent | ✅ Python scripts |
+| **Real-time** | ❌ No | ❌ No | ✅ Yes |
+| **Learning Curve** | Medium | Medium-High | Medium (Python req.) |
+| **Cross-platform** | ✅ Yes | ✅ Yes | ✅ Yes |
+| **GUI Available** | ❌ No | ❌ No | ❌ No (code-based) |
+| **Cost** | Free | Free | Free |
+
+---
+
+### Workflow Recommendations
+
+**For Podcasts:**
+1. **Basic**: FFmpeg noise gate + EQ
+2. **Intermediate**: SoX noise reduction + FFmpeg de-essing
+3. **Advanced**: Pedalboard complete workflow with adaptive processing
+
+**For Music Restoration:**
+1. **Basic**: SoX noise profiling + basic de-click
+2. **Intermediate**: Multi-pass SoX with EQ restoration
+3. **Advanced**: Pedalboard multi-stage with ML models
+
+**For Field Recordings:**
+1. **Basic**: FFmpeg high-pass + gate
+2. **Intermediate**: SoX noise reduction + de-click
+3. **Advanced**: Pedalboard adaptive workflow with spectral processing
+
+**For Voice-overs:**
+1. **Basic**: FFmpeg simple chain
+2. **Intermediate**: SoX + FFmpeg combined
+3. **Advanced**: Pedalboard professional workflow
+
+---
+
+### Performance Considerations
+
+**Processing Speed** (relative, 1 minute of audio):
+- FFmpeg: ~5-10 seconds (simple), ~20-30 seconds (complex)
+- SoX: ~10-20 seconds (single pass), ~40-60 seconds (multi-pass)
+- Pedalboard: ~5-15 seconds (real-time capable)
+
+**Memory Usage**:
+- FFmpeg: Low-Medium (streaming processing)
+- SoX: Medium (loads into memory)
+- Pedalboard: Medium-High (Python overhead, but efficient)
+
+**Scalability**:
+- FFmpeg: Excellent for batch processing
+- SoX: Excellent for scripted workflows
+- Pedalboard: Excellent for integration with ML pipelines
 
 ---
 
