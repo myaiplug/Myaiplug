@@ -12,6 +12,9 @@
 5. [Glitch Effects](#glitch-effects)
 6. [Looping & Stuttering](#looping--stuttering)
 7. [Experimental Processing](#experimental-processing)
+8. [Best Practices](#best-practices)
+9. [Tool Comparison](#tool-comparison-ffmpeg-vs-sox-vs-pedalboard)
+10. [Common Applications](#common-applications)
 
 ---
 
@@ -53,6 +56,34 @@ aecho=0.5:0.4:60:0.3,\
 aecho=0.5:0.4:80:0.3" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Delay
+from pedalboard.io import AudioFile
+
+# Simulate granular with very short delays
+board = Pedalboard([
+    Delay(delay_seconds=0.02, feedback=0.3, mix=0.5),
+    Delay(delay_seconds=0.04, feedback=0.3, mix=0.5),
+    Delay(delay_seconds=0.06, feedback=0.3, mix=0.5),
+    Delay(delay_seconds=0.08, feedback=0.3, mix=0.5)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+effected = board(audio, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `delay_seconds`: Very short delays (0.02-0.08s = 20-80ms)
+- `feedback=0.3`: Low feedback for texture
+- `mix=0.5`: Equal blend of dry and delayed signal
+
 **Tips:**
 - Very short delay times (10-100ms)
 - Multiple overlapping delays
@@ -72,6 +103,39 @@ aecho=0.5:0.4:80:0.3" output.wav
 # Extreme time stretch for granular effect
 rubberband -t 4.0 --pitch-hq input.wav output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Reverb, Delay, Gain
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Simulate time stretch with overlapping delays for granular character
+board = Pedalboard([
+    Delay(delay_seconds=0.1, feedback=0.6, mix=0.7),
+    Delay(delay_seconds=0.2, feedback=0.5, mix=0.6),
+    Reverb(room_size=0.9, damping=0.3, wet_level=0.5, dry_level=0.5, width=1.0),
+    Gain(gain_db=-3)
+])
+
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Process multiple times for extreme stretch effect
+effected = audio
+for _ in range(3):
+    effected = board(effected, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- Multiple delay layers create density
+- Long reverb (`room_size=0.9`) sustains the texture
+- Multiple passes simulate extreme time stretch
+- Gain reduction prevents clipping
 
 **Tips:**
 - Extreme stretch ratios (>4x)
@@ -94,6 +158,41 @@ sox input.wav - reverse | \
 sox - - echo 0.5 0.4 30 0.3 40 0.3 50 0.3 | \
 sox - output.wav reverse
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Delay
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Reverse, add granular delays, then reverse again
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Reverse audio
+reversed_audio = np.flip(audio, axis=1)
+
+# Apply granular delays
+board = Pedalboard([
+    Delay(delay_seconds=0.03, feedback=0.3, mix=0.5),
+    Delay(delay_seconds=0.04, feedback=0.3, mix=0.5),
+    Delay(delay_seconds=0.05, feedback=0.3, mix=0.5)
+])
+
+effected = board(reversed_audio, samplerate)
+
+# Reverse back
+final = np.flip(effected, axis=1)
+
+with AudioFile('output.wav', 'w', samplerate, final.shape[0]) as f:
+    f.write(final)
+```
+
+**Parameters Explained (Pedalboard):**
+- `np.flip()`: Reverses audio along time axis
+- Short delays (30-50ms) create granular texture
+- Double reverse creates surreal quality
 
 **Tips:**
 - Reverse + granular delays + reverse
@@ -124,6 +223,28 @@ ffmpeg -i input.wav -af "areverse" output.wav
 sox input.wav output.wav reverse
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Simple reverse effect
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Reverse audio along time axis
+reversed = np.flip(audio, axis=1)
+
+with AudioFile('output.wav', 'w', samplerate, reversed.shape[0]) as f:
+    f.write(reversed)
+```
+
+**Parameters Explained (Pedalboard):**
+- `np.flip(audio, axis=1)`: Reverses along time axis (axis=1 for stereo)
+- No processing artifacts, pure reversal
+- Works with any sample rate or channel count
+
 **Tips:**
 - Works great on cymbals (reverse cymbal swell)
 - Vocals create haunting effects
@@ -145,6 +266,39 @@ sox input.wav - reverse | \
 sox - - reverb 70 80 100 100 0 0 | \
 sox - output.wav reverse
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Reverb
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Reverse reverb: reverse → reverb → reverse
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Step 1: Reverse
+reversed = np.flip(audio, axis=1)
+
+# Step 2: Apply reverb
+board = Pedalboard([
+    Reverb(room_size=0.9, damping=0.2, wet_level=0.7, dry_level=0.3, width=1.0)
+])
+reverbed = board(reversed, samplerate)
+
+# Step 3: Reverse again
+final = np.flip(reverbed, axis=1)
+
+with AudioFile('output.wav', 'w', samplerate, final.shape[0]) as f:
+    f.write(final)
+```
+
+**Parameters Explained (Pedalboard):**
+- `room_size=0.9`: Large space for dramatic effect
+- `damping=0.2`: Bright reverb tail
+- `wet_level=0.7`: High reverb amount
+- Three-step process creates anticipation
 
 **Workflow:**
 1. Reverse audio
@@ -176,6 +330,32 @@ ffmpeg -i input.wav -filter_complex "\
 -map "[out]" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Blend forward and reverse versions
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Create reversed version
+reversed_audio = np.flip(audio, axis=1)
+
+# Mix 50/50 (adjust weights as desired)
+mixed = (audio * 0.5) + (reversed_audio * 0.5)
+
+with AudioFile('output.wav', 'w', samplerate, mixed.shape[0]) as f:
+    f.write(mixed)
+```
+
+**Parameters Explained (Pedalboard):**
+- `audio * 0.5`: 50% forward audio
+- `reversed_audio * 0.5`: 50% reverse audio
+- Adjust ratios for different blend amounts
+- Creates phase-like texture from temporal interference
+
 **Tips:**
 - 50/50 or experiment with ratios
 - Very surreal sound
@@ -196,6 +376,37 @@ ffmpeg -i input.wav -filter_complex "\
 sox input.wav - reverse | \
 rubberband -p 7 - output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, PitchShift
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Reverse then pitch shift
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Reverse audio
+reversed = np.flip(audio, axis=1)
+
+# Pitch shift up 7 semitones
+board = Pedalboard([
+    PitchShift(semitones=7.0)
+])
+
+effected = board(reversed, samplerate)
+
+with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
+    f.write(effected)
+```
+
+**Parameters Explained (Pedalboard):**
+- `semitones=7.0`: Pitch shift up by 7 semitones (perfect fifth)
+- Apply to reversed audio for otherworldly effect
+- Use negative values for dark, ominous sounds
+- Try extreme values (-12 to +12) for experimental results
 
 **Tips:**
 - Combine techniques
@@ -221,6 +432,39 @@ Rhythmic gating for stutter and rhythm effects.
 ffmpeg -i input.wav -af "tremolo=f=8:d=0.9" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, LadderFilter, Compressor
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Create rhythmic gate using gain automation simulation
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Generate gate pattern at 8 Hz (480 BPM eighth notes at 120 BPM)
+duration = audio.shape[1] / samplerate
+t = np.linspace(0, duration, audio.shape[1])
+gate_pattern = (np.sin(2 * np.pi * 8 * t) > 0).astype(float)
+
+# Apply gate with smooth envelope
+gate_depth = 0.9
+gate_envelope = 1.0 - (gate_depth * (1.0 - gate_pattern))
+
+# Apply to audio
+gated = audio * gate_envelope
+
+with AudioFile('output.wav', 'w', samplerate, gated.shape[0]) as f:
+    f.write(gated)
+```
+
+**Parameters Explained (Pedalboard):**
+- `frequency=8`: 8 Hz rate (sync to tempo: BPM/60 × subdivision)
+- `gate_depth=0.9`: 90% depth creates strong gating
+- Sine wave determines gate timing
+- Square-ish pattern from `> 0` threshold
+
 **Tips:**
 - Sync to tempo
 - Extreme depth creates gating
@@ -243,6 +487,61 @@ ffmpeg -i audio.wav -i trigger.wav -filter_complex "\
 -map "[out]" output.wav
 ```
 
+**Pedalboard (Python):**
+```python
+from pedalboard import Pedalboard, Compressor
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Sidechain gate using compressor
+with AudioFile('audio.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+with AudioFile('trigger.wav') as f:
+    trigger = f.read(f.frames)
+    # Ensure same length (truncates longer signal - data loss)
+    # For production, consider zero-padding the shorter signal instead
+    min_len = min(audio.shape[1], trigger.shape[1])
+    audio = audio[:, :min_len]
+    trigger = trigger[:, :min_len]
+
+# Detect trigger envelope
+trigger_env = np.abs(trigger).max(axis=0)
+threshold = 0.05  # Approximately -26dB (20*log10(0.05))
+gate = (trigger_env > threshold).astype(float)
+
+# Smooth gate with attack/release (5ms attack, 100ms release)
+# Note: This O(n) loop can be slow for files longer than a few minutes
+# For production, use scipy.signal.lfilter or vectorized NumPy operations
+attack_samples = int(0.005 * samplerate)
+release_samples = int(0.1 * samplerate)
+
+smoothed_gate = np.zeros_like(gate)
+current = 0.0
+for i in range(len(gate)):
+    target = gate[i]
+    if target > current:
+        current = min(current + 1.0/attack_samples, target)
+    else:
+        current = max(current - 1.0/release_samples, target)
+    smoothed_gate[i] = current
+
+# Apply gate with ratio (9:1 means 90% attenuation when closed)
+gate_ratio = 0.9
+min_level = 0.1
+gated = audio * (smoothed_gate * gate_ratio + min_level)
+
+with AudioFile('output.wav', 'w', samplerate, gated.shape[0]) as f:
+    f.write(gated)
+```
+
+**Parameters Explained (Pedalboard):**
+- `threshold=0.05`: Trigger detection threshold
+- `attack_samples`: Fast attack (5ms)
+- `release_samples`: Slower release (100ms)
+- Ratio 9:1 means 90% attenuation when closed
+
 **Tips:**
 - Use drums as trigger
 - Control synths/pads with rhythm
@@ -262,6 +561,39 @@ ffmpeg -i audio.wav -i trigger.wav -filter_complex "\
 # Fast tremolo for stutter
 ffmpeg -i input.wav -af "tremolo=f=16:d=0.95" output.wav
 ```
+
+**Pedalboard (Python):**
+```python
+from pedalboard.io import AudioFile
+import numpy as np
+
+# Fast stutter gate at 16 Hz
+with AudioFile('input.wav') as f:
+    audio = f.read(f.frames)
+    samplerate = f.samplerate
+
+# Generate fast stutter pattern
+duration = audio.shape[1] / samplerate
+t = np.linspace(0, duration, audio.shape[1])
+stutter_rate = 16  # Hz
+stutter_depth = 0.95
+
+# Square wave for aggressive stutter
+stutter_pattern = (np.sin(2 * np.pi * stutter_rate * t) > 0).astype(float)
+stutter_envelope = 1.0 - (stutter_depth * (1.0 - stutter_pattern))
+
+# Apply stutter
+stuttered = audio * stutter_envelope
+
+with AudioFile('output.wav', 'w', samplerate, stuttered.shape[0]) as f:
+    f.write(stuttered)
+```
+
+**Parameters Explained (Pedalboard):**
+- `stutter_rate=16`: Very fast 16 Hz rate
+- `stutter_depth=0.95`: Nearly full depth for aggressive effect
+- Square wave creates hard on/off gating
+- No smoothing for digital character
 
 **Tips:**
 - Very fast rates (>12 Hz)
@@ -617,6 +949,152 @@ sox input.wav output.wav \
 8. **Render Stems**: Save interesting textures
 9. **Chain Effects**: Combine multiple stages
 10. **Think Musically**: Serve the music
+
+---
+
+## Tool Comparison: FFmpeg vs SoX vs Pedalboard
+
+Understanding the strengths and trade-offs of each tool helps you choose the right one for your creative FX workflow.
+
+### Quality Tiers by Tool
+
+#### FFmpeg
+**Strengths:**
+- All-in-one solution for audio and video
+- Excellent filter chains with complex routing
+- Good for batch processing
+- Built-in format conversion
+
+**Quality Characteristics:**
+- 🟢 **Basic**: Fast processing, good for quick effects
+- 🟡 **Intermediate**: Complex filter graphs, multiple inputs
+- 🔴 **Advanced**: Broadcast-quality with careful parameter tuning
+
+**Best For:**
+- Video with audio workflows
+- Complex routing (splitting, mixing)
+- Batch processing scripts
+- Format conversions with effects
+
+**Limitations:**
+- No native granular synthesis
+- Limited time-stretching (use rubberband)
+- Steeper learning curve for filter syntax
+
+#### SoX (Sound eXchange)
+**Strengths:**
+- Purpose-built for audio manipulation
+- Excellent audio fidelity
+- Simple command chaining
+- Powerful for batch processing
+
+**Quality Characteristics:**
+- 🟢 **Basic**: Clean, efficient processing
+- 🟡 **Intermediate**: Professional-grade results
+- 🔴 **Advanced**: Studio-quality with chain effects
+
+**Best For:**
+- Pure audio workflows
+- Quick command-line processing
+- Sample rate conversions
+- Audio analysis and generation
+
+**Limitations:**
+- Audio-only (no video)
+- No native pitch shifting (use rubberband)
+- Limited real-time capability
+
+#### Pedalboard (Python Library)
+**Strengths:**
+- Programmatic control with Python
+- Spotify's professional audio engine
+- Easy integration with NumPy/SciPy
+- Excellent for algorithmic processing
+- Real-time capable
+
+**Quality Characteristics:**
+- 🟢 **Basic**: High-quality DSP out of the box
+- 🟡 **Intermediate**: Professional plugin-quality effects
+- 🔴 **Advanced**: Studio-grade with full programmatic control
+
+**Best For:**
+- Algorithmic and generative effects
+- Integration with ML/AI workflows
+- Custom effect development
+- Programmatic audio manipulation
+- Batch processing with Python logic
+
+**Limitations:**
+- Requires Python environment
+- Programming knowledge needed
+- Not a standalone CLI tool
+
+### Quality Comparison Table
+
+| Effect Type | FFmpeg | SoX | Pedalboard | Winner |
+|-------------|--------|-----|------------|--------|
+| **Reverse** | ⭐⭐⭐⭐ Good | ⭐⭐⭐⭐⭐ Excellent | ⭐⭐⭐⭐⭐ Excellent | Tie: SoX/Pedalboard |
+| **Granular** | ⭐⭐⭐ Simulated | ⭐⭐⭐⭐ Good | ⭐⭐⭐⭐⭐ Best control | Pedalboard |
+| **Gating** | ⭐⭐⭐⭐ Very Good | ⭐⭐⭐⭐ Very Good | ⭐⭐⭐⭐⭐ Full control | Pedalboard |
+| **Speed** | ⭐⭐⭐⭐⭐ Fastest | ⭐⭐⭐⭐ Fast | ⭐⭐⭐ Moderate | FFmpeg |
+| **Ease of Use** | ⭐⭐⭐ Moderate | ⭐⭐⭐⭐ Easy | ⭐⭐⭐ Needs coding | SoX |
+| **Flexibility** | ⭐⭐⭐⭐ High | ⭐⭐⭐⭐ High | ⭐⭐⭐⭐⭐ Unlimited | Pedalboard |
+| **Audio Quality** | ⭐⭐⭐⭐ Excellent | ⭐⭐⭐⭐⭐ Outstanding | ⭐⭐⭐⭐⭐ Outstanding | Tie: SoX/Pedalboard |
+
+### When to Use Each Tool
+
+**Use FFmpeg when:**
+- Working with video and audio together
+- Need complex filter routing
+- Already using FFmpeg in your pipeline
+- Batch processing with format conversion
+
+**Use SoX when:**
+- Pure audio command-line workflow
+- Quick one-off processing tasks
+- Shell scripting audio pipelines
+- Need fast, reliable audio manipulation
+
+**Use Pedalboard when:**
+- Building custom effects or processing chains
+- Integrating audio with Python workflows
+- Need algorithmic or generative processing
+- Want programmatic control over parameters
+- Building audio applications or plugins
+- Working with machine learning/AI audio projects
+
+### Output Quality Notes
+
+**Reverse Effects:**
+- All three tools produce identical results for simple reversal
+- No quality differences for pure reverse operations
+- Pedalboard offers more control for complex reverse chains
+
+**Granular Effects:**
+- FFmpeg simulates with delays (good approximation)
+- SoX provides better granular-like textures
+- Pedalboard allows true algorithmic granular synthesis with full control
+
+**Creative Gating:**
+- FFmpeg's tremolo is fast and effective
+- SoX provides flexible gating options
+- Pedalboard offers precise, sample-accurate control
+- Pedalboard best for tempo-synced, complex patterns
+
+### Recommendation by Skill Level
+
+**🟢 Basic Users:**
+- Start with **SoX** for simplicity
+- Use **FFmpeg** if you need video support
+
+**🟡 Intermediate Users:**
+- Use **SoX** or **FFmpeg** based on workflow
+- Learn **Pedalboard** for custom effects
+
+**🔴 Advanced Users:**
+- Use **Pedalboard** for maximum control
+- Combine all three tools in complex pipelines
+- Use each tool's strengths for different stages
 
 ---
 
