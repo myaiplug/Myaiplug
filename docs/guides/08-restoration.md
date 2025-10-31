@@ -12,6 +12,10 @@
 5. [Hum Removal](#hum-removal)
 6. [Click & Pop Removal](#click--pop-removal)
 7. [Restoration Workflows](#restoration-workflows)
+8. [Tools Comparison](#tools-comparison)
+9. [Best Practices](#best-practices)
+10. [Common Issues](#common-issues)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
