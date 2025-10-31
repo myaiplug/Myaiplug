@@ -500,7 +500,7 @@ with AudioFile('audio.wav') as f:
 
 with AudioFile('trigger.wav') as f:
     trigger = f.read(f.frames)
-    # Ensure same length
+    # Ensure same length (simple truncation; consider padding shorter signal for production)
     min_len = min(audio.shape[1], trigger.shape[1])
     audio = audio[:, :min_len]
     trigger = trigger[:, :min_len]
@@ -511,6 +511,7 @@ threshold = 0.05  # -30dB roughly
 gate = (trigger_env > threshold).astype(float)
 
 # Smooth gate with attack/release (5ms attack, 100ms release)
+# Note: For long files, consider scipy.signal.lfilter for better performance
 attack_samples = int(0.005 * samplerate)
 release_samples = int(0.1 * samplerate)
 
@@ -524,8 +525,10 @@ for i in range(len(gate)):
         current = max(current - 1.0/release_samples, target)
     smoothed_gate[i] = current
 
-# Apply gate
-gated = audio * (smoothed_gate * 0.9 + 0.1)  # ratio=9:1
+# Apply gate with ratio (9:1 means 90% attenuation when closed)
+gate_ratio = 0.9
+min_level = 0.1
+gated = audio * (smoothed_gate * gate_ratio + min_level)
 
 with AudioFile('output.wav', 'w', samplerate, gated.shape[0]) as f:
     f.write(gated)
