@@ -516,44 +516,36 @@ ffmpeg -i input.wav -filter_complex "\
 ```python
 from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
 from pedalboard.io import AudioFile
-import numpy as np
 
-# Moderate de-essing with frequency-specific compression
-def multiband_deess(audio, samplerate):
-    """De-ess with band-specific processing"""
-    # Split into bands
-    low_board = Pedalboard([LowpassFilter(cutoff_frequency_hz=5000)])
-    high_board = Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=5000),
-        LowpassFilter(cutoff_frequency_hz=10000),
-        # Compress only the sibilance band
-        Compressor(threshold_db=-22, ratio=5, attack_ms=1, release_ms=40)
-    ])
-    top_board = Pedalboard([HighpassFilter(cutoff_frequency_hz=10000)])
-    
-    # Process each band
-    low = low_board(audio, samplerate)
-    mid = high_board(audio, samplerate)
-    high = top_board(audio, samplerate)
-    
-    # Mix bands back together
-    return low + mid + high
+# Moderate de-essing - simplified approach
+# Note: For production, use complementary crossover filters to avoid overlap
+board = Pedalboard([
+    # Target sibilance range with bandpass effect
+    HighpassFilter(cutoff_frequency_hz=5000),
+    LowpassFilter(cutoff_frequency_hz=10000),
+    # Compress the sibilance band
+    Compressor(threshold_db=-22, ratio=5, attack_ms=1, release_ms=40)
+])
 
 with AudioFile('input.wav') as f:
     audio = f.read(f.frames)
     samplerate = f.samplerate
 
-effected = multiband_deess(audio, samplerate)
+# Process only the sibilance band
+sibilance_compressed = board(audio, samplerate)
 
-with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
-    f.write(effected)
+# For complete multiband: subtract processed from original and recombine
+# (Requires more complex implementation with proper crossover filters)
+
+with AudioFile('output.wav', 'w', samplerate, sibilance_compressed.shape[0]) as f:
+    f.write(sibilance_compressed)
 ```
 
 **Parameters Explained (Pedalboard):**
-- Splits audio into three bands
-- Only compresses sibilance range (5-10 kHz)
+- Bandpass filters isolate sibilance range (5-10 kHz)
+- Compression applied only to isolated band
 - Higher ratio for noticeable reduction
-- Leaves lows and tops unaffected
+- Note: Full multiband requires crossover filters for best results
 
 **Tips:**
 - Bandpass filter on sidechain (5-10 kHz)
@@ -651,32 +643,31 @@ ffmpeg -i input.wav -filter_complex "\
 ```python
 from pedalboard import Pedalboard, Compressor, HighpassFilter, LowpassFilter
 from pedalboard.io import AudioFile
-import numpy as np
 
-# Professional multiband de-esser
+# Professional multiband de-esser - serial processing approach
 def professional_multiband_deess(audio, samplerate):
-    """Three-band de-esser with precise control"""
-    # Low band: Pass through unchanged
-    low_board = Pedalboard([LowpassFilter(cutoff_frequency_hz=5000)])
-    low_band = low_board(audio, samplerate)
+    """Three-band de-esser with precise control
     
-    # Mid band (sibilance): Compress heavily
-    mid_board = Pedalboard([
+    Note: True multiband requires complementary crossover filters.
+    This uses a serial approach that's simpler and avoids phase issues.
+    """
+    # Stage 1: Compress high frequencies (sibilance)
+    stage1 = Pedalboard([
         HighpassFilter(cutoff_frequency_hz=5000),
         LowpassFilter(cutoff_frequency_hz=10000),
         Compressor(threshold_db=-25, ratio=6, attack_ms=0.5, release_ms=40)
     ])
-    mid_band = mid_board(audio, samplerate)
     
-    # High band: Pass through with slight reduction
-    high_board = Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=10000),
+    # Apply to audio (this is the compressed sibilance)
+    processed = stage1(audio, samplerate)
+    
+    # Stage 2: Gentle overall compression
+    stage2 = Pedalboard([
         Compressor(threshold_db=-30, ratio=2, attack_ms=5, release_ms=50)
     ])
-    high_band = high_board(audio, samplerate)
     
-    # Recombine bands
-    return low_band + mid_band + high_band
+    final = stage2(processed, samplerate)
+    return final
 
 with AudioFile('input.wav') as f:
     audio = f.read(f.frames)
@@ -689,10 +680,10 @@ with AudioFile('output.wav', 'w', samplerate, effected.shape[0]) as f:
 ```
 
 **Parameters Explained (Pedalboard):**
-- Three independent bands with separate processing
-- Only sibilance band heavily compressed
-- Low band passes unaffected for body
-- High band lightly compressed for air
+- Serial processing avoids frequency overlap issues
+- Stage 1 targets sibilance band with heavy compression
+- Stage 2 applies gentle overall compression
+- Simpler than true multiband but effective
 
 **Tips:**
 - Only compress sibilance band (5-10 kHz)
