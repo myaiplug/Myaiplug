@@ -4,10 +4,10 @@ import MultiStepFunnel from '@/components/MultiStepFunnel';
 import HowItWorks from '@/components/HowItWorks';
 import ValueTrio from '@/components/ValueTrio';
 import Features from '@/sections/Features';
-import MiniStudio from '@/components/MiniStudio';
+import AIPlayground from '@/components/AIPlayground';
 import GamificationStrip from '@/components/GamificationStrip';
 import Testimonials from '@/sections/Testimonials';
-import Trust from '@/sections/Trust';
+import ResourceVault from '@/components/ResourceVault';
 import Pricing from '@/sections/Pricing';
 import LeaderboardTeaser from '@/components/LeaderboardTeaser';
 import CreatorProfilePreview from '@/components/CreatorProfilePreview';
@@ -25,22 +25,10 @@ export default function Home() {
         <ValueTrio />
         <GamificationStrip />
         <Features />
-        {/* Demo Section */}
-        <section id="demo" className="py-24 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="font-display text-3xl md:text-4xl font-bold">
-                Experience <span className="gradient-text">NoDAW</span>
-              </h2>
-              <p className="text-gray-400 mt-2">Tweak the knobs and hear changes in real time.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-myai-bg-panel/40 backdrop-blur-xl shadow-[0_10px_60px_-15px_rgba(0,0,0,0.5)] p-4 md:p-6">
-              <MiniStudio />
-            </div>
-          </div>
-        </section>
+        {/* AI Playground Section */}
+        <AIPlayground />
         <Testimonials />
-        <Trust />
+        <ResourceVault />
         <Pricing />
         <LeaderboardTeaser />
         <CreatorProfilePreview />
