@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { MICROCOPY } from '@/lib/constants/microcopy';
+import { getMockSocialProof } from '@/lib/utils/mockData';
 
 function BootOverlay({ show, onDone }: { show: boolean; onDone: () => void }) {
   const [lines, setLines] = useState<string[]>([]);
@@ -139,111 +141,173 @@ function LeftFileWindow({ show, onDone }: { show: boolean; onDone: () => void })
   );
 }
 
+// Demo animation component
+function ProcessingDemo() {
+  const [stage, setStage] = useState(0);
+  const [timeSaved, setTimeSaved] = useState(0);
+  
+  const stages = ['Analyze', 'Clean', 'Enhance', 'Master', 'Deliver'];
+  
+  useEffect(() => {
+    const stageInterval = setInterval(() => {
+      setStage((s) => (s + 1) % stages.length);
+    }, 3000);
+    
+    const timeInterval = setInterval(() => {
+      setTimeSaved((t) => {
+        const newTime = t + 1;
+        return newTime > 127 ? 0 : newTime;
+      });
+    }, 300);
+    
+    return () => {
+      clearInterval(stageInterval);
+      clearInterval(timeInterval);
+    };
+  }, [stages.length]);
+  
+  return (
+    <div className="relative w-full max-w-md mx-auto bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400 uppercase tracking-wider">Processing</span>
+          <span className="text-xs font-mono text-myai-accent">
+            {MICROCOPY.HERO.timeSavedLabel} +00:{String(timeSaved).padStart(2, '0')}
+          </span>
+        </div>
+        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-myai-primary to-myai-accent"
+            animate={{ width: `${((stage + 1) / stages.length) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        {stages.map((s, i) => (
+          <div key={s} className="flex flex-col items-center gap-1">
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                i <= stage
+                  ? 'bg-myai-accent text-white'
+                  : 'bg-white/10 text-gray-500'
+              }`}
+            >
+              {i < stage ? '✓' : i === stage ? '...' : i + 1}
+            </div>
+            <span className={`text-xs ${i <= stage ? 'text-white' : 'text-gray-500'}`}>
+              {s}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Hero() {
   const [boot, setBoot] = useState(true);
   const [leftWin, setLeftWin] = useState(false);
   const [invite, setInvite] = useState(false);
+  const socialProof = getMockSocialProof();
+  
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
       {/* Background gradient overlay */}
-    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-bg-dark/50 to-myai-bg-dark z-10 pointer-events-none" />
-  <BootOverlay show={boot} onDone={() => { setBoot(false); setLeftWin(true); }} />
-  <LeftFileWindow show={leftWin && !boot} onDone={() => { setLeftWin(false); setInvite(true); }} />
-  {/* keyframes for scroll animation */}
-  <style>{`@keyframes scroll { from { transform: translateY(0); } to { transform: translateY(-30%); } }`}</style>
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-bg-dark/50 to-myai-bg-dark z-10 pointer-events-none" />
+      <BootOverlay show={boot} onDone={() => { setBoot(false); setLeftWin(true); }} />
+      <LeftFileWindow show={leftWin && !boot} onDone={() => { setLeftWin(false); setInvite(true); }} />
+      {/* keyframes for scroll animation */}
+      <style>{`@keyframes scroll { from { transform: translateY(0); } to { transform: translateY(-30%); } }`}</style>
       
       {/* Content */}
-      <div className="relative z-20 max-w-6xl mx-auto px-6 py-20 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-        >
-          {/* Removed top badge/pill above brand per request */}
+      <div className="relative z-20 max-w-7xl mx-auto px-6 py-20">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left: Headline & CTA */}
+          <div className="text-left">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            >
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.8 }}
+                className="font-display text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+              >
+                {MICROCOPY.HERO.headline.split('.').map((part, i, arr) => (
+                  <span key={i}>
+                    {part}
+                    {i < arr.length - 1 && '.'}
+                    {i < arr.length - 1 && <br className="hidden md:block" />}
+                  </span>
+                ))}
+              </motion.h1>
 
-          {/* Main Heading with small brand label above NoDAW */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.8 }}
+                className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl leading-relaxed"
+              >
+                {MICROCOPY.HERO.subtitle}
+              </motion.p>
+
+              {/* CTA Buttons */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.8 }}
+                className="flex flex-col sm:flex-row gap-4 mb-8"
+              >
+                <Link href="#funnel">
+                  <button className="group relative px-8 py-4 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-bold rounded-xl text-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-myai-primary/50">
+                    <span className="relative z-10">{MICROCOPY.HERO.ctaPrimary}</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-myai-accent to-myai-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </button>
+                </Link>
+
+                <Link href="#demo">
+                  <button className="px-8 py-4 border-2 border-white/20 text-white font-semibold rounded-xl text-lg hover:bg-white/5 hover:border-myai-primary/50 transition-all duration-300">
+                    {MICROCOPY.HERO.ctaSecondary}
+                  </button>
+                </Link>
+              </motion.div>
+
+              {/* Social Proof */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8, duration: 0.8 }}
+                className="flex items-center gap-4"
+              >
+                <div className="flex -space-x-2">
+                  {socialProof.avatars.map((avatar, i) => (
+                    <div
+                      key={i}
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-myai-primary to-myai-accent border-2 border-myai-bg-dark flex items-center justify-center text-white text-sm font-bold"
+                    >
+                      {String.fromCharCode(65 + i)}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-400">
+                  {MICROCOPY.HERO.socialProof(socialProof.creatorsCount, socialProof.hoursSaved)}
+                </p>
+              </motion.div>
+            </motion.div>
+          </div>
+
+          {/* Right: Demo Animation */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
-            className="font-display text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight"
           >
-            <span className="relative inline-block align-top">
-              <span className="absolute -top-1 md:-top-1 left-0.5 text-[10px] md:text-[11px] font-black tracking-tight leading-none uppercase text-white/90">
-                MyAiPlug™
-              </span>
-              <span className="gradient-text block">NoDAW</span>
-            </span>
-          </motion.h1>
-
-          {/* Subheading with cyan highlighter and emphasized words */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-snug"
-          >
-            Studio-grade AI audio tools that transform your sound.
-            <br />
-            <span className="tracking-wide uppercase font-extrabold">
-              Plug in. <span className="relative inline-block">
-                <span className="relative z-10">CREATE</span>
-                <span className="absolute inset-x-0 bottom-0 h-2 bg-cyan-400/30 blur-[2px] rounded"></span>
-              </span>. Release. <span className="relative inline-block">
-                <span className="relative z-10">COLLECT</span>
-                <span className="absolute inset-x-0 bottom-0 h-2 bg-cyan-400/30 blur-[2px] rounded"></span>
-              </span>.
-            </span>
-          </motion.p>
-
-          {/* CTA Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-          >
-            <Link href="#demo">
-              <button className="group relative px-8 py-4 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-bold rounded-xl text-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-myai-primary/50">
-                <span className="relative z-10">Try NoDAW Free</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-myai-accent to-myai-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </button>
-            </Link>
-
-            <Link href="#pricing">
-              <button className="px-8 py-4 border-2 border-myai-primary/50 text-white font-semibold rounded-xl text-lg hover:bg-myai-primary/10 hover:border-myai-primary transition-all duration-300">
-                View Pricing
-              </button>
-            </Link>
+            <ProcessingDemo />
           </motion.div>
-
-          {/* Trust Indicators */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.8 }}
-            className="mt-12 flex flex-wrap justify-center items-center gap-8 text-sm text-gray-400"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Secure Card Payments</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>7-Day Refund Guarantee</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Instant Access</span>
-            </div>
-          </motion.div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Scroll Indicator */}

@@ -2,65 +2,10 @@
 
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
+import { PRICING_PLANS } from '@/lib/constants/pricing';
 
 const SaleRibbon = dynamic(() => import('@/components/SaleRibbon'), { ssr: false });
-const GeometryParticles = dynamic(() => import('@/components/GeometryParticles'), { ssr: false });
 const ConnectedParticles = dynamic(() => import('@/components/ConnectedParticles'), { ssr: false });
-
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for trying out NoDAW',
-    features: [
-      'Access to all 6 audio modules',
-      'Standard presets',
-      'A/B comparison',
-      'Real-time processing',
-      'Community support',
-    ],
-    cta: 'Start Free',
-    highlighted: false,
-  },
-  {
-    name: 'Pro',
-    price: '$19',
-    period: 'per month',
-    description: 'For serious creators and professionals',
-    badge: 'Most Popular',
-    features: [
-      'Everything in Free',
-      'Custom preset save/load',
-      'Advanced module parameters',
-      'Export processed audio',
-      'Priority support',
-      '50+ premium presets',
-      'No watermarks',
-      'Commercial license',
-    ],
-    cta: 'Start Pro Trial',
-    highlighted: true,
-  },
-  {
-    name: 'Studio',
-    price: '$49',
-    period: 'per month',
-    description: 'Ultimate power for studios',
-    features: [
-      'Everything in Pro',
-      'Unlimited exports',
-      'API access',
-      'White-label options',
-      'Team collaboration',
-      'Custom module requests',
-      'Dedicated support',
-      'Early access to new features',
-    ],
-    cta: 'Contact Sales',
-    highlighted: false,
-  },
-];
 
 export default function Pricing() {
   return (
@@ -84,7 +29,7 @@ export default function Pricing() {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {plans.map((plan, idx) => (
+          {PRICING_PLANS.map((plan, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 30 }}
@@ -114,18 +59,22 @@ export default function Pricing() {
                   </div>
                 </div>
               )}
-              {plan.highlighted && (
-                <div className="absolute -right-4 top-4 rotate-3">
-                  <SaleRibbon />
+              
+              {/* Ribbon for Studio plan */}
+              {'ribbon' in plan && plan.ribbon && (
+                <div className="absolute -right-12 top-8 rotate-45 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-bold px-12 py-1">
+                  {plan.ribbon}
                 </div>
               )}
-              {/* Removed badge pill per request */}
 
               <div className="text-center mb-8">
                 <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center gap-2 mb-2">
                   <span className="text-5xl font-bold">{plan.price}</span>
                   <span className="text-gray-400 text-sm">/ {plan.period}</span>
+                </div>
+                <div className="text-sm font-semibold text-myai-accent mb-2">
+                  {plan.credits.toLocaleString()} credits
                 </div>
                 <p className="text-gray-400 text-sm">{plan.description}</p>
               </div>
@@ -164,7 +113,7 @@ export default function Pricing() {
 
               {plan.highlighted && (
                 <p className="text-center text-xs text-gray-400 mt-4">
-                  ✨ 7-day money-back guarantee
+                  ✨ Credits roll over 30 days, cancel anytime
                 </p>
               )}
             </motion.div>
