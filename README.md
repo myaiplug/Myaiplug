@@ -1,5 +1,6 @@
 # MyAiPlug™ - AI-Powered Audio/Video Platform
-www.myaiplug.com
+
+[http://www.myaiplug.com]
 
 **Create faster. Show your score. Get paid in time.**
 
@@ -58,114 +59,7 @@ Credits roll over for 30 days. Cancel anytime.
 - **Clean Cut**: 50 QC-passed deliveries in a row
 - **Taste Maker**: 10 published creations with ≥100 views
 
-## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
-- **Animation**: Framer Motion, GSAP
-- **Audio**: Web Audio API, Custom DSP modules
-- **State**: React Hooks, Context API
-- **Deployment**: Vercel (ready)
-
-## 📦 Project Structure
-
-```
-├── app/                    # Next.js app directory
-├── components/             # Reusable UI components
-│   ├── Header.tsx         # Top navigation
-│   ├── MultiStepFunnel.tsx # Upload → Process flow
-│   ├── ValueTrio.tsx      # Benefits showcase
-│   ├── GamificationStrip.tsx # Progress display
-│   ├── LeaderboardTeaser.tsx # Rankings preview
-│   ├── CreatorProfilePreview.tsx # Profile showcase
-│   ├── HowItWorks.tsx     # Process explanation
-│   └── FAQ.tsx            # Comprehensive Q&A
-├── sections/               # Page sections
-│   ├── Hero.tsx           # Landing hero
-│   ├── Features.tsx       # Feature highlights
-│   ├── Pricing.tsx        # Credit-based plans
-│   └── ...
-├── lib/
-│   ├── types/             # TypeScript definitions
-│   ├── constants/         # Gamification rules
-│   │   ├── gamification.ts # Points, levels, badges
-│   │   ├── pricing.ts     # Credit costs
-│   │   └── microcopy.ts   # UI strings
-│   └── utils/             # Helper functions
-│       ├── helpers.ts     # Formatting, calculations
-│       └── mockData.ts    # Development data
-└── public/                # Static assets
-```
-
-## 🚦 Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## 📝 Development Roadmap
-
-### ✅ Phase 1: Foundation (Complete)
-- Data models and TypeScript types
-- Gamification constants and rules
-- Utility functions
-- Mock data providers
-
-### ✅ Phase 2: Landing Page (Complete)
-- Header with navigation
-- Hero with conversion-focused copy
-- Multi-step funnel component
-- How It Works section
-- Value proposition sections
-- Gamification displays
-- Updated pricing
-- Leaderboards preview
-- Creator profiles preview
-- Comprehensive FAQ
-
-### ✅ Phase 3: User System (Complete)
-- Authentication (sign up/sign in/password reset)
-- User dashboard with overview, stats, and navigation
-- Jobs history page with QC reports
-- Portfolio management with edit/delete functionality
-- Referrals system with link sharing and milestones
-- Public profile pages with badges and creations
-- Settings page with privacy controls
-- Fully responsive design across all pages
-
-### ✅ Phase 4: Backend & API (Complete)
-- Points calculation engine with anti-farming
-- Badge award system (11 badge types)
-- Leaderboard ranking (3 types: time saved, referrals, popularity)
-- Referral tracking (3-stage: clicked → signed up → paid)
-- Job processing system with time saved calculation
-- User authentication and session management
-- Creation/portfolio management service
-- Anti-abuse measures (rate limiting, IP tracking, fraud detection)
-- Complete API endpoints (10 routes)
-- Security: Cryptographically secure IDs, validated inputs
-- In-memory storage (ready for DB migration)
-
-### 📋 Phase 5+: Production & Scaling (Next)
-- Database integration (PostgreSQL)
-- Real file upload and processing
-- Payment integration (Stripe)
-- WebSocket for real-time updates
-- Email service
-- Advanced analytics
-- API documentation
-- Production deployment
 
 ## 🎯 Anti-Cheat & Fair Play
 
