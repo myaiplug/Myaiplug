@@ -2,15 +2,20 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { mockProfile } from '@/lib/utils/mockData';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { getNextLevelInfo } from '@/lib/constants/gamification';
 import { formatTimeSaved } from '@/lib/utils/helpers';
 
 export default function GamificationStrip() {
-  const profile = mockProfile;
+  const { profile, isAuthenticated } = useAuth();
+  
+  if (!isAuthenticated || !profile) {
+    return null; // Don't show if user is not logged in
+  }
+  
   const levelInfo = getNextLevelInfo(profile.pointsTotal);
   
-  const monthlyTimeSaved = 19380; // 5h 23m in seconds
+  const monthlyTimeSaved = profile.timeSavedSecTotal; // Using total for now, could calculate monthly if we had timestamps
 
   return (
     <section className="py-12 px-6 bg-gradient-to-r from-myai-primary/10 to-myai-accent/10 border-y border-white/10">

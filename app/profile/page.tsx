@@ -1,15 +1,44 @@
 'use client';
 
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { mockUser, mockProfile, mockCreations } from '@/lib/utils/mockData';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { creationApi } from '@/lib/services/api';
 import { getLevelFromPoints, LEVELS } from '@/lib/constants/gamification';
 import { formatTimeSaved, formatNumber } from '@/lib/utils/helpers';
+import type { Creation } from '@/lib/types';
 
 export default function ProfilePage() {
-  const user = mockUser;
-  const profile = mockProfile;
-  const creations = mockCreations;
+  const { user, profile, isLoading: authLoading } = useAuth();
+  const [creations, setCreations] = useState<Creation[]>([]);
+
+  const loadCreations = useCallback(async () => {
+    try {
+      const response = await creationApi.list({ public: true });
+      setCreations(response.creations.filter(c => c.userId === user?.id));
+    } catch (error) {
+      console.error('Failed to load creations:', error);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadCreations();
+    }
+  }, [authLoading, user, loadCreations]);
+
+  if (authLoading || !user || !profile) {
+    return (
+      <div className="min-h-screen bg-myai-bg-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block size-8 rounded-full border-2 border-white/30 border-t-white animate-spin mb-4" />
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   const currentLevelNum = getLevelFromPoints(profile.pointsTotal);
   const currentLevel = LEVELS.find(l => l.level === currentLevelNum) || LEVELS[0];
 

@@ -4,9 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function SignIn() {
   const router = useRouter();
+  const { signin } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -38,13 +40,15 @@ export default function SignIn() {
 
     setIsSubmitting(true);
     
-    // Mock authentication - in production, this would call an API
-    setTimeout(() => {
-      console.log('Sign in attempt:', formData);
-      // For now, redirect to dashboard
-      setIsSubmitting(false);
+    try {
+      await signin(formData.email, formData.password);
       router.push('/dashboard');
-    }, 1000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign in failed. Please try again.';
+      setErrors({ general: errorMessage });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,6 +90,12 @@ export default function SignIn() {
 
         {/* Sign In Form */}
         <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
+          {errors.general && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm">
+              {errors.general}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>

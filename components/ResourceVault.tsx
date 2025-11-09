@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface Resource {
   title: string;
@@ -66,14 +68,15 @@ function SignInModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
 }
 
 export default function ResourceVault() {
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [crankRotation, setCrankRotation] = useState(0);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [isAuthenticated] = useState(false); // TODO: Connect to actual auth state
 
   const handleVaultClick = () => {
     if (!isAuthenticated) {
-      setShowSignInModal(true);
+      router.push('/signin');
       return;
     }
 
