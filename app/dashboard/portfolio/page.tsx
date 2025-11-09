@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -13,14 +13,9 @@ export default function PortfolioPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Creation>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      loadCreations();
-    }
-  }, [authLoading, isAuthenticated]);
-
-  const loadCreations = async () => {
+  const loadCreations = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await creationApi.list({});
@@ -30,17 +25,25 @@ export default function PortfolioPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadCreations();
+    }
+  }, [authLoading, isAuthenticated, loadCreations]);
 
   const handleEdit = (creation: Creation) => {
     setEditingId(creation.id);
     setEditForm(creation);
+    setErrorMessage(null);
   };
 
   const handleSave = async () => {
     if (!editingId) return;
     
     try {
+      setErrorMessage(null);
       await creationApi.update(editingId, {
         title: editForm.title,
         tags: editForm.tags,
@@ -49,33 +52,39 @@ export default function PortfolioPage() {
       await loadCreations();
       setEditingId(null);
       setEditForm({});
-    } catch (error: any) {
-      alert(error.message || 'Failed to save changes');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save changes';
+      setErrorMessage(errorMsg);
     }
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setEditForm({});
+    setErrorMessage(null);
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this creation?')) {
       try {
+        setErrorMessage(null);
         await creationApi.delete(id);
         await loadCreations();
-      } catch (error: any) {
-        alert(error.message || 'Failed to delete creation');
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to delete creation';
+        setErrorMessage(errorMsg);
       }
     }
   };
 
   const handleTogglePublic = async (id: string, currentPublic: boolean) => {
     try {
+      setErrorMessage(null);
       await creationApi.update(id, { public: !currentPublic });
       await loadCreations();
-    } catch (error: any) {
-      alert(error.message || 'Failed to update creation');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update creation';
+      setErrorMessage(errorMsg);
     }
   };
 
@@ -110,6 +119,26 @@ export default function PortfolioPage() {
             Manage your public creations and portfolio
           </p>
         </motion.div>
+
+        {/* Error Message */}
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-300"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <span>{errorMessage}</span>
+              <button
+                onClick={() => setErrorMessage(null)}
+                className="ml-auto text-red-300 hover:text-red-100"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Stats */}
         <motion.div

@@ -4,8 +4,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { authApi, userApi } from '../services/api';
 import type { User, Profile, Badge } from '../types';
 
+// Client-safe user type without sensitive fields
+type ClientUser = Omit<User, 'passwordHash' | 'ipHash' | 'emailVerifiedAt' | 'createdAt'>;
+
 interface AuthState {
-  user: User | null;
+  user: ClientUser | null;
   profile: Profile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -34,12 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
   });
 
-  // Check for existing session on mount
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
       const response = await authApi.checkSession();
       
@@ -52,10 +50,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             avatarUrl: response.user.avatarUrl,
             bio: response.user.bio,
             tier: response.user.tier as any,
-            emailVerifiedAt: null,
-            passwordHash: '',
-            ipHash: '',
-            createdAt: new Date(),
           },
           profile: {
             userId: response.user.id,
@@ -85,7 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: false,
       });
     }
-  };
+  }, []);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   const signin = async (email: string, password: string) => {
     const response = await authApi.signin(email, password);
@@ -98,10 +97,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: response.user.avatarUrl,
         bio: response.user.bio,
         tier: response.user.tier as any,
-        emailVerifiedAt: null,
-        passwordHash: '',
-        ipHash: '',
-        createdAt: new Date(),
       },
       profile: {
         userId: response.user.id,
@@ -109,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pointsTotal: response.profile.pointsTotal,
         timeSavedSecTotal: response.profile.timeSavedSecTotal,
         badges: response.profile.badges,
-        privacyOptOut: false,
+        privacyOptOut: response.profile.privacyOptOut || false,
       },
       isLoading: false,
       isAuthenticated: true,
@@ -127,10 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: response.user.avatarUrl,
         bio: response.user.bio,
         tier: response.user.tier as any,
-        emailVerifiedAt: null,
-        passwordHash: '',
-        ipHash: '',
-        createdAt: new Date(),
       },
       profile: {
         userId: response.user.id,
@@ -138,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pointsTotal: response.profile.pointsTotal,
         timeSavedSecTotal: response.profile.timeSavedSecTotal,
         badges: response.profile.badges,
-        privacyOptOut: false,
+        privacyOptOut: response.profile.privacyOptOut || false,
       },
       isLoading: false,
       isAuthenticated: true,
@@ -168,10 +159,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatarUrl: response.user.avatarUrl,
           bio: response.user.bio,
           tier: response.user.tier as any,
-          emailVerifiedAt: null,
-          passwordHash: '',
-          ipHash: '',
-          createdAt: new Date(),
         },
         profile: {
           userId: response.user.id,

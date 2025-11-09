@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { leaderboardApi } from '@/lib/services/api';
 import { MICROCOPY } from '@/lib/constants/microcopy';
 import { formatTimeSaved, getInitials, getAvatarPlaceholder } from '@/lib/utils/helpers';
@@ -14,11 +14,7 @@ export default function LeaderboardTeaser() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadLeaderboard();
-  }, [activeTab]);
-
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await leaderboardApi.get({
@@ -32,7 +28,11 @@ export default function LeaderboardTeaser() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, [loadLeaderboard]);
 
   const tabs: { id: LeaderboardTab; label: string; icon: string }[] = [
     { id: 'time_saved', label: MICROCOPY.LEADERBOARD.timeSaved, icon: '⚡' },

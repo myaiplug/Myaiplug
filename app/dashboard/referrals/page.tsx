@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -36,13 +36,7 @@ export default function ReferralsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      loadReferralData();
-    }
-  }, [authLoading, isAuthenticated]);
-
-  const loadReferralData = async () => {
+  const loadReferralData = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await referralApi.get();
@@ -52,7 +46,13 @@ export default function ReferralsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadReferralData();
+    }
+  }, [authLoading, isAuthenticated, loadReferralData]);
 
   const handleCopy = () => {
     if (referralData) {

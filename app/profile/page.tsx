@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -12,25 +12,21 @@ import type { Creation } from '@/lib/types';
 export default function ProfilePage() {
   const { user, profile, isLoading: authLoading } = useAuth();
   const [creations, setCreations] = useState<Creation[]>([]);
-  const [isLoadingCreations, setIsLoadingCreations] = useState(true);
+
+  const loadCreations = useCallback(async () => {
+    try {
+      const response = await creationApi.list({ public: true });
+      setCreations(response.creations.filter(c => c.userId === user?.id));
+    } catch (error) {
+      console.error('Failed to load creations:', error);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!authLoading && user) {
       loadCreations();
     }
-  }, [authLoading, user]);
-
-  const loadCreations = async () => {
-    try {
-      setIsLoadingCreations(true);
-      const response = await creationApi.list({ public: true });
-      setCreations(response.creations.filter(c => c.userId === user?.id));
-    } catch (error) {
-      console.error('Failed to load creations:', error);
-    } finally {
-      setIsLoadingCreations(false);
-    }
-  };
+  }, [authLoading, user, loadCreations]);
 
   if (authLoading || !user || !profile) {
     return (

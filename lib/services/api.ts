@@ -25,6 +25,7 @@ export interface AuthResponse {
     pointsTotal: number;
     timeSavedSecTotal: number;
     badges: Badge[];
+    privacyOptOut?: boolean;
   };
   sessionToken: string;
 }

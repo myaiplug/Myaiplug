@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -13,13 +13,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      loadJobs();
-    }
-  }, [authLoading, isAuthenticated]);
-
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await jobApi.list();
@@ -29,7 +23,13 @@ export default function JobsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadJobs();
+    }
+  }, [authLoading, isAuthenticated, loadJobs]);
 
   if (authLoading || isLoading) {
     return (

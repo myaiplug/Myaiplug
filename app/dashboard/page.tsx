@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
@@ -13,25 +13,21 @@ import type { Job } from '@/lib/types';
 export default function Dashboard() {
   const { user, profile, isLoading: authLoading } = useAuth();
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+
+  const loadJobs = useCallback(async () => {
+    try {
+      const response = await jobApi.list(5);
+      setRecentJobs(response.jobs);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+    }
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
       loadJobs();
     }
-  }, [authLoading, user]);
-
-  const loadJobs = async () => {
-    try {
-      setIsLoadingJobs(true);
-      const response = await jobApi.list(5);
-      setRecentJobs(response.jobs);
-    } catch (error) {
-      console.error('Failed to load jobs:', error);
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  };
+  }, [authLoading, user, loadJobs]);
 
   if (authLoading || !user || !profile) {
     return (
