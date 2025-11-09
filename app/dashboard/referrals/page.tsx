@@ -1,52 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { referralApi } from '@/lib/services/api';
 import { REFERRAL_MILESTONES } from '@/lib/constants/gamification';
 
+interface ReferralData {
+  referralCode: string;
+  referralUrl: string;
+  stats: {
+    total: number;
+    signedUp: number;
+    paid: number;
+    creditsEarned: number;
+  };
+  history: Array<{
+    id: string;
+    status: string;
+    createdAt: Date;
+    signedUpAt: Date | null;
+    paidAt: Date | null;
+  }>;
+  milestones: Array<{
+    threshold: number;
+    reward: string;
+    claimed: boolean;
+  }>;
+}
+
 export default function ReferralsPage() {
-  const [referralLink] = useState('https://myaiplug.com/r/procreator');
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [referralData, setReferralData] = useState<ReferralData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Mock referral data
-  const stats = {
-    totalReferrals: 3,
-    signedUp: 3,
-    paid: 1,
-    creditsEarned: 550,
-    pointsEarned: 800,
-  };
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadReferralData();
+    }
+  }, [authLoading, isAuthenticated]);
 
-  const recentReferrals = [
-    {
-      id: '1',
-      handle: 'newuser123',
-      status: 'paid' as const,
-      date: new Date('2024-04-20'),
-      earned: { credits: 50, points: 500 },
-    },
-    {
-      id: '2',
-      handle: 'creator456',
-      status: 'signed_up' as const,
-      date: new Date('2024-04-18'),
-      earned: { credits: 0, points: 100 },
-    },
-    {
-      id: '3',
-      handle: 'audiogeek',
-      status: 'signed_up' as const,
-      date: new Date('2024-04-15'),
-      earned: { credits: 0, points: 100 },
-    },
-  ];
+  const loadReferralData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await referralApi.get();
+      setReferralData(response);
+    } catch (error) {
+      console.error('Failed to load referral data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(referralLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (referralData) {
+      navigator.clipboard.writeText(referralData.referralUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="inline-block size-8 rounded-full border-2 border-white/30 border-t-white animate-spin mb-4" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!referralData) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-20">
+          <p className="text-gray-400">Failed to load referral data</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -80,7 +117,7 @@ export default function ReferralsPage() {
           <div className="flex gap-3">
             <input
               type="text"
-              value={referralLink}
+              value={referralData.referralUrl}
               readOnly
               className="flex-1 px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-white"
             />
@@ -113,31 +150,31 @@ export default function ReferralsPage() {
         >
           <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl p-5 text-center">
             <div className="text-3xl mb-2">👥</div>
-            <div className="text-2xl font-bold text-white mb-1">{stats.totalReferrals}</div>
+            <div className="text-2xl font-bold text-white mb-1">{referralData.stats.total}</div>
             <div className="text-sm text-gray-400">Total Referrals</div>
           </div>
 
           <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl p-5 text-center">
             <div className="text-3xl mb-2">✍️</div>
-            <div className="text-2xl font-bold text-white mb-1">{stats.signedUp}</div>
+            <div className="text-2xl font-bold text-white mb-1">{referralData.stats.signedUp}</div>
             <div className="text-sm text-gray-400">Signed Up</div>
           </div>
 
           <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl p-5 text-center">
             <div className="text-3xl mb-2">💳</div>
-            <div className="text-2xl font-bold text-white mb-1">{stats.paid}</div>
+            <div className="text-2xl font-bold text-white mb-1">{referralData.stats.paid}</div>
             <div className="text-sm text-gray-400">Paid Users</div>
           </div>
 
           <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl p-5 text-center">
             <div className="text-3xl mb-2">💰</div>
-            <div className="text-2xl font-bold text-white mb-1">{stats.creditsEarned}</div>
+            <div className="text-2xl font-bold text-white mb-1">{referralData.stats.creditsEarned}</div>
             <div className="text-sm text-gray-400">Credits Earned</div>
           </div>
 
           <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl p-5 text-center">
             <div className="text-3xl mb-2">⭐</div>
-            <div className="text-2xl font-bold text-white mb-1">{stats.pointsEarned}</div>
+            <div className="text-2xl font-bold text-white mb-1">{(referralData.stats.signedUp * 100) + (referralData.stats.paid * 500)}</div>
             <div className="text-sm text-gray-400">Points Earned</div>
           </div>
         </motion.div>
@@ -153,7 +190,7 @@ export default function ReferralsPage() {
           
           <div className="space-y-4">
             {REFERRAL_MILESTONES.map((milestone, index) => {
-              const isAchieved = stats.paid >= milestone.count;
+              const isAchieved = referralData.stats.paid >= milestone.count;
               return (
                 <div
                   key={index}
@@ -211,19 +248,19 @@ export default function ReferralsPage() {
           <h2 className="font-display text-xl font-bold mb-4">Recent Referrals</h2>
 
           <div className="space-y-3">
-            {recentReferrals.map((referral) => (
+            {referralData.history.slice(0, 10).map((referral) => (
               <div
                 key={referral.id}
                 className="flex items-center justify-between p-4 bg-myai-bg-dark/50 rounded-lg border border-white/5"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-myai-primary to-myai-accent flex items-center justify-center font-bold text-white">
-                    {referral.handle[0].toUpperCase()}
+                    R
                   </div>
                   <div>
-                    <div className="font-medium text-white">@{referral.handle}</div>
+                    <div className="font-medium text-white">Referral #{referral.id.substring(0, 8)}</div>
                     <div className="text-sm text-gray-400">
-                      {referral.date.toLocaleDateString()}
+                      {new Date(referral.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -232,23 +269,24 @@ export default function ReferralsPage() {
                   <div className="text-right">
                     <div className="text-sm text-gray-400">Earned</div>
                     <div className="text-white font-medium">
-                      {referral.earned.points} pts
-                      {referral.earned.credits > 0 && ` + ${referral.earned.credits} credits`}
+                      {referral.status === 'paid' ? '500 pts + 50 credits' : referral.status === 'signed_up' ? '100 pts' : '0 pts'}
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     referral.status === 'paid'
                       ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : referral.status === 'signed_up'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
                   }`}>
-                    {referral.status === 'paid' ? '💳 Paid' : '✍️ Signed Up'}
+                    {referral.status === 'paid' ? '💳 Paid' : referral.status === 'signed_up' ? '✍️ Signed Up' : '🔗 Clicked'}
                   </span>
                 </div>
               </div>
             ))}
           </div>
 
-          {recentReferrals.length === 0 && (
+          {referralData.history.length === 0 && (
             <div className="text-center py-8 text-gray-400">
               <div className="text-4xl mb-2">🤝</div>
               <p>No referrals yet. Start sharing your link!</p>

@@ -1,30 +1,57 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { mockCreations } from '@/lib/utils/mockData';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { creationApi } from '@/lib/services/api';
 import type { Creation } from '@/lib/types';
 
 export default function PortfolioPage() {
-  const [creations, setCreations] = useState<Creation[]>(mockCreations);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [creations, setCreations] = useState<Creation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Creation>>({});
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadCreations();
+    }
+  }, [authLoading, isAuthenticated]);
+
+  const loadCreations = async () => {
+    try {
+      setIsLoading(true);
+      const response = await creationApi.list({});
+      setCreations(response.creations);
+    } catch (error) {
+      console.error('Failed to load creations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleEdit = (creation: Creation) => {
     setEditingId(creation.id);
     setEditForm(creation);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingId) return;
     
-    setCreations(creations.map(c => 
-      c.id === editingId ? { ...c, ...editForm } : c
-    ));
-    setEditingId(null);
-    setEditForm({});
-    alert('Changes saved! (Mock - no backend yet)');
+    try {
+      await creationApi.update(editingId, {
+        title: editForm.title,
+        tags: editForm.tags,
+        public: editForm.public,
+      });
+      await loadCreations();
+      setEditingId(null);
+      setEditForm({});
+    } catch (error: any) {
+      alert(error.message || 'Failed to save changes');
+    }
   };
 
   const handleCancel = () => {
@@ -32,18 +59,38 @@ export default function PortfolioPage() {
     setEditForm({});
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this creation?')) {
-      setCreations(creations.filter(c => c.id !== id));
-      alert('Creation deleted! (Mock - no backend yet)');
+      try {
+        await creationApi.delete(id);
+        await loadCreations();
+      } catch (error: any) {
+        alert(error.message || 'Failed to delete creation');
+      }
     }
   };
 
-  const handleTogglePublic = (id: string) => {
-    setCreations(creations.map(c => 
-      c.id === id ? { ...c, public: !c.public } : c
-    ));
+  const handleTogglePublic = async (id: string, currentPublic: boolean) => {
+    try {
+      await creationApi.update(id, { public: !currentPublic });
+      await loadCreations();
+    } catch (error: any) {
+      alert(error.message || 'Failed to update creation');
+    }
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="inline-block size-8 rounded-full border-2 border-white/30 border-t-white animate-spin mb-4" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -244,7 +291,7 @@ export default function PortfolioPage() {
                         ✏️ Edit
                       </button>
                       <button
-                        onClick={() => handleTogglePublic(creation.id)}
+                        onClick={() => handleTogglePublic(creation.id, creation.public)}
                         className="px-4 py-2 bg-myai-bg-dark/50 border border-white/10 rounded-lg hover:border-white/20 transition-colors text-sm font-medium"
                       >
                         {creation.public ? '🔒 Make Private' : '👁️ Make Public'}
