@@ -43,8 +43,9 @@ export default function SignIn() {
     try {
       await signin(formData.email, formData.password);
       router.push('/dashboard');
-    } catch (error: any) {
-      setErrors({ general: error.message || 'Sign in failed. Please try again.' });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign in failed. Please try again.';
+      setErrors({ general: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
