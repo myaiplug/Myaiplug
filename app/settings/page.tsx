@@ -43,8 +43,9 @@ export default function SettingsPage() {
     try {
       await updateProfile(formData);
       setSaveMessage('Settings saved successfully!');
-    } catch (error: any) {
-      setSaveMessage(error.message || 'Failed to save settings');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save settings';
+      setSaveMessage(errorMessage);
     } finally {
       setIsSaving(false);
     }
