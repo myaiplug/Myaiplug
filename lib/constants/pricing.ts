@@ -1,0 +1,126 @@
+// Credit costing and pricing constants
+
+import { JobType } from '../types';
+
+// 1 credit ≈ 3 seconds CPU wall time on standard tier
+export const CREDIT_VALUE_SECONDS = 3;
+
+// Base costs and per-minute multipliers by job type
+export const JOB_COSTS = {
+  audio_basic: {
+    base: 20,
+    perMinute: 5,
+  },
+  audio_pro: {
+    base: 35, // 20 + 15 for advanced
+    perMinute: 20, // 5 + 15 for advanced
+  },
+  reels: {
+    base: 60,
+    perMinute: 20,
+  },
+  stem_split: {
+    base: 120,
+    perMinute: 30,
+  },
+  cleanup: {
+    base: 40,
+    perMinute: 10,
+  },
+  qc: {
+    base: 10,
+    perMinute: 2,
+  },
+} as const;
+
+// Tier-based credit allocations
+export const TIER_CREDITS = {
+  free: {
+    monthly: 100,
+    signup: 100,
+  },
+  pro: {
+    monthly: 1000,
+    price: 49,
+  },
+  studio: {
+    monthly: 3500,
+    price: 149,
+  },
+} as const;
+
+// Top-up pricing
+export const CREDIT_TOPUP = {
+  price: 10, // USD
+  credits: 500,
+} as const;
+
+// Credit rollover period (days)
+export const CREDIT_ROLLOVER_DAYS = 30;
+
+// Calculate job cost
+export function calculateJobCost(jobType: JobType, durationMinutes: number): number {
+  const costs = JOB_COSTS[jobType];
+  if (!costs) return 0;
+  
+  return costs.base + Math.ceil(durationMinutes * costs.perMinute);
+}
+
+// Plans for pricing page
+export const PRICING_PLANS = [
+  {
+    name: 'Free',
+    price: '$0',
+    period: 'forever',
+    credits: 100,
+    description: 'Perfect for trying out the platform',
+    features: [
+      '100 credits on signup',
+      'Basic audio chains',
+      'Profile & badges',
+      'Public portfolio',
+      'Community support',
+    ],
+    cta: 'Start Free',
+    highlighted: false,
+  },
+  {
+    name: 'Pro',
+    price: '$49',
+    period: 'per month',
+    credits: 1000,
+    badge: 'Most Popular',
+    description: 'For serious creators and professionals',
+    features: [
+      '1,000 credits/month',
+      'Pro Chains',
+      'Caption styles',
+      'Leaderboard eligibility',
+      'Priority support',
+      'Credits roll over 30 days',
+      'Cancel anytime',
+    ],
+    cta: 'Start Pro',
+    highlighted: true,
+  },
+  {
+    name: 'Studio',
+    price: '$149',
+    period: 'per month',
+    credits: 3500,
+    ribbon: 'Founders price — 100 seats',
+    description: 'Ultimate power for studios',
+    features: [
+      '3,500 credits/month',
+      'Priority queue',
+      'Custom workflows',
+      'API access (Lv6+)',
+      'Dedicated support',
+      'Early feature access',
+      'Team collaboration',
+      'White-label options',
+    ],
+    cta: 'Contact Sales',
+    highlighted: false,
+  },
+] as const;
