@@ -1,15 +1,38 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { mockLeaderboard } from '@/lib/utils/mockData';
+import { useState, useEffect } from 'react';
+import { leaderboardApi } from '@/lib/services/api';
 import { MICROCOPY } from '@/lib/constants/microcopy';
 import { formatTimeSaved, getInitials, getAvatarPlaceholder } from '@/lib/utils/helpers';
+import type { LeaderboardEntry } from '@/lib/types';
 
 type LeaderboardTab = 'time_saved' | 'referrals' | 'popularity';
 
 export default function LeaderboardTeaser() {
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('time_saved');
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, [activeTab]);
+
+  const loadLeaderboard = async () => {
+    try {
+      setIsLoading(true);
+      const response = await leaderboardApi.get({
+        type: activeTab,
+        period: 'alltime',
+        limit: 5,
+      });
+      setEntries(response.entries);
+    } catch (error) {
+      console.error('Failed to load leaderboard:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const tabs: { id: LeaderboardTab; label: string; icon: string }[] = [
     { id: 'time_saved', label: MICROCOPY.LEADERBOARD.timeSaved, icon: '⚡' },
@@ -89,60 +112,74 @@ export default function LeaderboardTeaser() {
                 </tr>
               </thead>
               <tbody>
-                {mockLeaderboard.map((entry) => (
-                  <motion.tr
-                    key={entry.userId}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: entry.rank * 0.1 }}
-                    className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-lg font-bold ${
-                            entry.rank === 1
-                              ? 'text-yellow-400'
-                              : entry.rank === 2
-                              ? 'text-gray-300'
-                              : entry.rank === 3
-                              ? 'text-orange-400'
-                              : 'text-gray-500'
-                          }`}
-                        >
-                          #{entry.rank}
-                        </span>
-                        {entry.rank <= 3 && (
-                          <span className="text-xl">
-                            {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉'}
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                      <div className="inline-block size-6 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    </td>
+                  </tr>
+                ) : entries.length > 0 ? (
+                  entries.map((entry) => (
+                    <motion.tr
+                      key={entry.userId}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: entry.rank * 0.1 }}
+                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-lg font-bold ${
+                              entry.rank === 1
+                                ? 'text-yellow-400'
+                                : entry.rank === 2
+                                ? 'text-gray-300'
+                                : entry.rank === 3
+                                ? 'text-orange-400'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            #{entry.rank}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-full ${getAvatarPlaceholder(
-                            entry.handle
-                          )} flex items-center justify-center text-white font-bold text-sm`}
-                        >
-                          {getInitials(entry.handle)}
+                          {entry.rank <= 3 && (
+                            <span className="text-xl">
+                              {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉'}
+                            </span>
+                          )}
                         </div>
-                        <span className="font-semibold">@{entry.handle}</span>
-                      </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full ${getAvatarPlaceholder(
+                              entry.handle
+                            )} flex items-center justify-center text-white font-bold text-sm`}
+                          >
+                            {getInitials(entry.handle)}
+                          </div>
+                          <span className="font-semibold">@{entry.handle}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-myai-primary/20 to-myai-accent/20 border border-myai-primary/30 rounded-full">
+                          <span className="text-xs font-bold">Lv {entry.level}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-semibold text-myai-accent">
+                          {formatValue(entry.value, activeTab)}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                      No entries yet. Be the first!
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-myai-primary/20 to-myai-accent/20 border border-myai-primary/30 rounded-full">
-                        <span className="text-xs font-bold">Lv {entry.level}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="font-semibold text-myai-accent">
-                        {formatValue(entry.value, activeTab)}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

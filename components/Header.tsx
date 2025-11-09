@@ -3,9 +3,18 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
   const navLinks = [
     { href: '#how-it-works', label: 'How it works' },
@@ -42,17 +51,39 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/signin"
-              className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
-            >
-              Sign in
-            </Link>
-            <Link href="/signup">
-              <button className="px-6 py-2.5 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold rounded-lg text-sm hover:shadow-lg hover:shadow-myai-primary/50 transition-all">
-                Start Free
-              </button>
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                >
+                  Dashboard
+                </Link>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-400">@{user?.handle}</span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                >
+                  Sign in
+                </Link>
+                <Link href="/signup">
+                  <button className="px-6 py-2.5 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold rounded-lg text-sm hover:shadow-lg hover:shadow-myai-primary/50 transition-all">
+                    Start Free
+                  </button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -106,18 +137,42 @@ export default function Header() {
                     {link.label}
                   </Link>
                 ))}
-                <Link
-                  href="/signin"
-                  className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Sign in
-                </Link>
-                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                  <button className="w-full px-6 py-2.5 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold rounded-lg text-sm">
-                    Start Free
-                  </button>
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <span className="text-sm text-gray-400">@{user?.handle}</span>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/signin"
+                      className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign in
+                    </Link>
+                    <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                      <button className="w-full px-6 py-2.5 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold rounded-lg text-sm">
+                        Start Free
+                      </button>
+                    </Link>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
