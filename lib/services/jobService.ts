@@ -3,6 +3,8 @@ import type { Job, JobStatus, JobType, UserTier } from '../types';
 import { calculateTimeSaved, TIME_SAVED_BASELINES } from '../constants/gamification';
 import { calculateJobCost } from '../constants/pricing';
 import { awardPoints, calculateJobPoints } from './pointsEngine';
+import { generateSecureId } from '../utils/secureId';
+import { randomInt } from 'crypto';
 
 export interface CreateJobParams {
   userId: string;
@@ -31,7 +33,7 @@ export async function createJob(params: CreateJobParams): Promise<Job> {
 
   // Create job
   const job: Job = {
-    id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSecureId('job_'),
     userId,
     type,
     inputDurationSec,
@@ -186,7 +188,7 @@ export async function simulateJobProcessing(jobId: string): Promise<JobResult | 
   job.status = 'running';
 
   // Simulate processing delay (in real system, this would be actual processing)
-  const processingSeconds = Math.floor(Math.random() * 120) + 30; // 30-150 seconds
+  const processingSeconds = randomInt(30, 151); // 30-150 seconds
 
   // Complete the job
   return await completeJob(jobId, processingSeconds);
@@ -212,7 +214,7 @@ function getUserTier(userId: string): UserTier {
 
 function generateQCReport(job: Job): Record<string, any> {
   // Generate a mock QC report
-  const hasIssues = Math.random() < 0.1; // 10% chance of issues
+  const hasIssues = randomInt(0, 10) === 0; // 10% chance of issues
 
   return {
     hasIssues,

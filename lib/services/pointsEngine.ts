@@ -1,6 +1,7 @@
 // Points calculation engine - handles all point awarding logic
 import type { PointEventType, PointsLedgerEntry, Job } from '../types';
 import { POINT_EVENTS, ANTI_FARM_CAPS } from '../constants/gamification';
+import { generateSecureId } from '../utils/secureId';
 
 export interface AwardPointsParams {
   userId: string;
@@ -40,7 +41,7 @@ export async function awardPoints(params: AwardPointsParams): Promise<PointsLedg
 
   // Create ledger entry
   const entry: PointsLedgerEntry = {
-    id: `pts_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSecureId('pts_'),
     userId,
     eventType,
     points,

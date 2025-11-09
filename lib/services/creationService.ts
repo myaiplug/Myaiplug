@@ -2,6 +2,7 @@
 import type { Creation } from '../types';
 import { awardPoints } from './pointsEngine';
 import { validateViewIncrement } from './antiAbuseService';
+import { generateSecureId } from '../utils/secureId';
 
 export interface CreateCreationParams {
   userId: string;
@@ -38,7 +39,7 @@ export async function createCreation(params: CreateCreationParams): Promise<Crea
   } = params;
 
   const creation: Creation = {
-    id: `creation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSecureId('creation_'),
     userId,
     jobId,
     title,

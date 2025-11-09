@@ -3,6 +3,7 @@ import type { User, Profile, UserTier } from '../types';
 import { getLevelFromPoints } from '../constants/gamification';
 import { awardPoints } from './pointsEngine';
 import { initializeUserBadges } from './badgeSystem';
+import { generateSecureId, generateSessionToken } from '../utils/secureId';
 
 export interface CreateUserParams {
   email: string;
@@ -39,7 +40,7 @@ export async function createUser(params: CreateUserParams): Promise<AuthResult> 
   }
 
   // Create user
-  const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const userId = generateSecureId('user_');
   const user: User = {
     id: userId,
     email: email.toLowerCase(),
@@ -278,7 +279,7 @@ async function hashIP(ip: string): Promise<string> {
 }
 
 function createSession(userId: string): string {
-  const token = `session_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
+  const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
   sessionTokens.set(token, { userId, expiresAt });

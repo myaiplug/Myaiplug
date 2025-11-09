@@ -35,9 +35,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Validate email format (strict validation to prevent ReDoS)
+    // Simple check: must have @ and domain parts
+    if (!email || email.length > 254 || email.length < 3) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+    
+    const atIndex = email.indexOf('@');
+    const lastDotIndex = email.lastIndexOf('.');
+    
+    if (atIndex < 1 || lastDotIndex < atIndex + 2 || lastDotIndex >= email.length - 1) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }

@@ -2,6 +2,7 @@
 import type { Referral, ReferralStatus, Credits } from '../types';
 import { REFERRAL_MILESTONES } from '../constants/gamification';
 import { awardPoints } from './pointsEngine';
+import { generateSecureId } from '../utils/secureId';
 
 export interface ReferralLink {
   code: string;
@@ -51,7 +52,7 @@ export async function trackReferralClick(referralCode: string): Promise<Referral
   }
 
   const referral: Referral = {
-    id: `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSecureId('ref_'),
     referrerId,
     referredUserId: null,
     status: 'clicked',
@@ -87,7 +88,7 @@ export async function convertReferralToSignup(
   if (!referral) {
     // Create new referral if no click was tracked
     const newReferral: Referral = {
-      id: `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateSecureId('ref_'),
       referrerId,
       referredUserId: newUserId,
       status: 'signed_up',
