@@ -1,6 +1,7 @@
 import Header from '@/components/Header';
 import Hero from '@/sections/Hero';
 import MultiStepFunnel from '@/components/MultiStepFunnel';
+import HowItWorks from '@/components/HowItWorks';
 import ValueTrio from '@/components/ValueTrio';
 import Features from '@/sections/Features';
 import MiniStudio from '@/components/MiniStudio';
@@ -10,6 +11,7 @@ import Trust from '@/sections/Trust';
 import Pricing from '@/sections/Pricing';
 import LeaderboardTeaser from '@/components/LeaderboardTeaser';
 import CreatorProfilePreview from '@/components/CreatorProfilePreview';
+import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
 
 export default function Home() {
@@ -19,6 +21,7 @@ export default function Home() {
       <main className="min-h-screen">
         <Hero />
         <MultiStepFunnel />
+        <HowItWorks />
         <ValueTrio />
         <GamificationStrip />
         <Features />
@@ -41,6 +44,7 @@ export default function Home() {
         <Pricing />
         <LeaderboardTeaser />
         <CreatorProfilePreview />
+        <FAQ />
         <CTA />
         <CTA />
       
