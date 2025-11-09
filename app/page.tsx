@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/sections/Hero';
 import MultiStepFunnel from '@/components/MultiStepFunnel';
@@ -13,8 +16,17 @@ import LeaderboardTeaser from '@/components/LeaderboardTeaser';
 import CreatorProfilePreview from '@/components/CreatorProfilePreview';
 import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
+import LegalModal from '@/components/LegalModal';
 
 export default function Home() {
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'refund'>('privacy');
+
+  const openLegalModal = (type: 'privacy' | 'terms' | 'refund') => {
+    setLegalModalType(type);
+    setLegalModalOpen(true);
+  };
+
   return (
     <>
       <Header />
@@ -59,12 +71,40 @@ export default function Home() {
               <a href="#" className="hover:text-myai-accent transition-colors">Contact</a>
             </div>
             
+            <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-400 mb-4">
+              <button 
+                onClick={() => openLegalModal('privacy')} 
+                className="hover:text-myai-accent transition-colors underline"
+              >
+                Privacy Policy
+              </button>
+              <button 
+                onClick={() => openLegalModal('terms')} 
+                className="hover:text-myai-accent transition-colors underline"
+              >
+                Terms of Service
+              </button>
+              <button 
+                onClick={() => openLegalModal('refund')} 
+                className="hover:text-myai-accent transition-colors underline"
+              >
+                Refund & Delivery Policy
+              </button>
+            </div>
+            
             <div className="text-xs text-gray-500">
               © 2025 MyAiPlug™. All rights reserved. | Plug in. Create. Release. Collect.
             </div>
           </div>
         </footer>
       </main>
+      
+      {/* Legal Modal */}
+      <LegalModal 
+        isOpen={legalModalOpen} 
+        onClose={() => setLegalModalOpen(false)} 
+        type={legalModalType} 
+      />
     </>
   );
 }
