@@ -1,12 +1,48 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { mockJobs } from '@/lib/utils/mockData';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { jobApi } from '@/lib/services/api';
 import { formatTimeSaved } from '@/lib/utils/helpers';
+import type { Job } from '@/lib/types';
 
 export default function JobsPage() {
-  const jobs = mockJobs;
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadJobs();
+    }
+  }, [authLoading, isAuthenticated]);
+
+  const loadJobs = async () => {
+    try {
+      setIsLoading(true);
+      const response = await jobApi.list();
+      setJobs(response.jobs);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (authLoading || isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="inline-block size-8 rounded-full border-2 border-white/30 border-t-white animate-spin mb-4" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const statusStyles = {
     done: {

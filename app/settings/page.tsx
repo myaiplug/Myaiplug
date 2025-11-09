@@ -1,17 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { mockUser, mockProfile } from '@/lib/utils/mockData';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 type TabType = 'account' | 'privacy' | 'notifications';
 
 export default function SettingsPage() {
+  const { user, profile, updateProfile, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('account');
-  const [user, setUser] = useState(mockUser);
-  const [profile, setProfile] = useState(mockProfile);
+  const [formData, setFormData] = useState({
+    handle: '',
+    bio: '',
+    avatarUrl: '',
+    privacyOptOut: false,
+  });
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && profile) {
+      setFormData({
+        handle: user.handle,
+        bio: user.bio || '',
+        avatarUrl: user.avatarUrl || '',
+        privacyOptOut: profile.privacyOptOut,
+      });
+    }
+  }, [user, profile]);
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'account', label: 'Account', icon: '👤' },
@@ -21,12 +38,30 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Mock save - in production, this would call an API
-    setTimeout(() => {
+    setSaveMessage(null);
+    
+    try {
+      await updateProfile(formData);
+      setSaveMessage('Settings saved successfully!');
+    } catch (error: any) {
+      setSaveMessage(error.message || 'Failed to save settings');
+    } finally {
       setIsSaving(false);
-      alert('Settings saved! (Mock - no backend yet)');
-    }, 1000);
+    }
   };
+
+  if (authLoading || !user || !profile) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="inline-block size-8 rounded-full border-2 border-white/30 border-t-white animate-spin mb-4" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -81,8 +116,8 @@ export default function SettingsPage() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">@</span>
                     <input
                       type="text"
-                      value={user.handle}
-                      onChange={(e) => setUser({ ...user, handle: e.target.value })}
+                      value={formData.handle}
+                      onChange={(e) => setFormData({ ...formData, handle: e.target.value })}
                       className="w-full pl-8 pr-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg focus:outline-none focus:border-myai-accent transition-colors text-white"
                     />
                   </div>
@@ -99,11 +134,12 @@ export default function SettingsPage() {
                   <input
                     type="email"
                     value={user.email}
-                    onChange={(e) => setUser({ ...user, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg focus:outline-none focus:border-myai-accent transition-colors text-white"
+                    readOnly
+                    disabled
+                    className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-gray-400 cursor-not-allowed"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Used for login and notifications
+                    Email cannot be changed. Used for login and notifications.
                   </p>
                 </div>
 
@@ -113,15 +149,15 @@ export default function SettingsPage() {
                     Bio
                   </label>
                   <textarea
-                    value={user.bio || ''}
-                    onChange={(e) => setUser({ ...user, bio: e.target.value })}
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     rows={4}
                     maxLength={160}
                     className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg focus:outline-none focus:border-myai-accent transition-colors text-white resize-none"
                     placeholder="Tell others about yourself..."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {user.bio?.length || 0}/160 characters
+                    {formData.bio.length}/160 characters
                   </p>
                 </div>
 
@@ -132,8 +168,8 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="url"
-                    value={user.avatarUrl || ''}
-                    onChange={(e) => setUser({ ...user, avatarUrl: e.target.value })}
+                    value={formData.avatarUrl}
+                    onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
                     className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg focus:outline-none focus:border-myai-accent transition-colors text-white"
                     placeholder="https://example.com/avatar.jpg"
                   />
@@ -165,8 +201,8 @@ export default function SettingsPage() {
                   <label className="relative inline-flex items-center cursor-pointer ml-4">
                     <input
                       type="checkbox"
-                      checked={profile.privacyOptOut}
-                      onChange={(e) => setProfile({ ...profile, privacyOptOut: e.target.checked })}
+                      checked={formData.privacyOptOut}
+                      onChange={(e) => setFormData({ ...formData, privacyOptOut: e.target.checked })}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-myai-primary peer-checked:to-myai-accent"></div>
@@ -297,6 +333,15 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="px-6 py-4 bg-myai-bg-dark/30 border-t border-white/10">
+            {saveMessage && (
+              <div className={`mb-3 p-3 rounded-lg text-sm ${
+                saveMessage.includes('success') 
+                  ? 'bg-green-500/10 border border-green-500/30 text-green-300'
+                  : 'bg-red-500/10 border border-red-500/30 text-red-300'
+              }`}>
+                {saveMessage}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-400">
                 Changes will be saved to your account
