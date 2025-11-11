@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AlbumArtAI from './AlbumArtAI';
 import YouTubeToSocialAI from './YouTubeToSocialAI';
+import AudioToSocialContent from './AudioToSocialContent';
 
 interface AIModel {
   id: string;
@@ -14,6 +15,7 @@ interface AIModel {
 const AI_MODELS: AIModel[] = [
   { id: 'albumart', name: 'Single/AlbumArt AI', component: AlbumArtAI },
   { id: 'youtube', name: 'YouTube to Social Content', component: YouTubeToSocialAI },
+  { id: 'audio', name: 'Audio Upload to Social Content', component: AudioToSocialContent },
 ];
 
 export default function AIPlayground() {

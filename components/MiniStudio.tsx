@@ -517,7 +517,7 @@ export default function MiniStudio() {
             <div className="mt-4 flex items-center justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wider text-gray-400">Promo Code</div>
-                <div className="text-lg font-mono font-bold text-myai-accent-warm">NODAW25OFF</div>
+                <div className="text-lg font-mono font-bold text-myai-accent-warm">MYAI25OFF</div>
               </div>
               <button
                 onClick={() => setShowDiscount(false)}

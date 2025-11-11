@@ -215,7 +215,7 @@ export default function Features() {
           className="text-center mb-16"
         >
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-            Why Choose <span className="gradient-text">NoDAW</span>
+            Why Choose <span className="gradient-text">MyAiPlug</span>
           </h2>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
             Professional audio tools designed for modern creators who demand quality without compromise.

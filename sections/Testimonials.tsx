@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 const testimonials = [
   {
-    quote: "MyAiPlug NoDAW has completely transformed my workflow. The audio quality rivals my expensive hardware plugins.",
+    quote: "MyAiPlug has completely transformed my workflow. The audio quality rivals my expensive hardware plugins.",
     author: "Alex Chen",
     role: "Music Producer",
     rating: 5,
@@ -38,7 +38,7 @@ export default function Testimonials() {
             Trusted by <span className="gradient-text">Creators</span>
           </h2>
           <p className="text-gray-400 text-lg">
-            Join thousands of producers, engineers, and artists using NoDAW
+            Join thousands of producers, engineers, and artists using MyAiPlug
           </p>
         </motion.div>
 
