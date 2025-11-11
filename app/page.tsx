@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from 'react';
 import Header from '@/components/Header';
 import Hero from '@/sections/Hero';
 import MultiStepFunnel from '@/components/MultiStepFunnel';
@@ -16,16 +15,9 @@ import LeaderboardTeaser from '@/components/LeaderboardTeaser';
 import CreatorProfilePreview from '@/components/CreatorProfilePreview';
 import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
-import LegalModal from '@/components/LegalModal';
+import Link from 'next/link';
 
 export default function Home() {
-  const [legalModalOpen, setLegalModalOpen] = useState(false);
-  const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'refund'>('privacy');
-
-  const openLegalModal = (type: 'privacy' | 'terms' | 'refund') => {
-    setLegalModalType(type);
-    setLegalModalOpen(true);
-  };
 
   return (
     <>
@@ -72,24 +64,30 @@ export default function Home() {
             </div>
             
             <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-400 mb-4">
-              <button 
-                onClick={() => openLegalModal('privacy')} 
+              <Link 
+                href="/privacy" 
                 className="hover:text-myai-accent transition-colors underline"
               >
                 Privacy Policy
-              </button>
-              <button 
-                onClick={() => openLegalModal('terms')} 
+              </Link>
+              <Link 
+                href="/terms" 
                 className="hover:text-myai-accent transition-colors underline"
               >
                 Terms of Service
-              </button>
-              <button 
-                onClick={() => openLegalModal('refund')} 
+              </Link>
+              <Link 
+                href="/refund" 
                 className="hover:text-myai-accent transition-colors underline"
               >
                 Refund & Delivery Policy
-              </button>
+              </Link>
+              <Link 
+                href="/stripe" 
+                className="hover:text-myai-accent transition-colors underline"
+              >
+                Stripe Information
+              </Link>
             </div>
             
             <div className="text-xs text-gray-500">
@@ -98,13 +96,6 @@ export default function Home() {
           </div>
         </footer>
       </main>
-      
-      {/* Legal Modal */}
-      <LegalModal 
-        isOpen={legalModalOpen} 
-        onClose={() => setLegalModalOpen(false)} 
-        type={legalModalType} 
-      />
     </>
   );
 }
