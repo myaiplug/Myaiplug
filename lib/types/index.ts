@@ -141,3 +141,26 @@ export interface LeaderboardEntry {
   value: number;
   level: number;
 }
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  author: string;
+  authorAvatar: string | null;
+  category: string;
+  tags: string[];
+  imageUrl: string;
+  publishedAt: Date;
+  updatedAt: Date;
+  views: number;
+}
+
+export type RemixFormat = 
+  | 'facebook'
+  | 'instagram'
+  | 'twitter'
+  | 'voiceover'
+  | 'user_video'
+  | 'short_form';
