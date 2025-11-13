@@ -34,7 +34,7 @@ export default function CTA() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
           >
-            Join thousands of creators using NoDAW to craft studio-quality audio. Start free, no credit card required.
+            Join thousands of creators using MyAiPlug to craft studio-quality audio. Start free, no credit card required.
           </motion.p>
           
           <motion.div

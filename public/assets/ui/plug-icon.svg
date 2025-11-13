@@ -1,0 +1,21 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="plugGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C4DFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00BCD4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Plug prongs (top) -->
+  <rect x="12" y="4" width="4" height="8" rx="1" fill="url(#plugGradient)"/>
+  <rect x="24" y="4" width="4" height="8" rx="1" fill="url(#plugGradient)"/>
+  
+  <!-- Plug body -->
+  <rect x="10" y="12" width="20" height="16" rx="3" fill="url(#plugGradient)"/>
+  
+  <!-- Ground pin -->
+  <circle cx="20" cy="20" r="2" fill="white" opacity="0.9"/>
+  
+  <!-- Cable -->
+  <path d="M 20 28 Q 20 32, 18 34 Q 16 36, 20 36" stroke="url(#plugGradient)" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

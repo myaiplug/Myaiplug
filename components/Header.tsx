@@ -30,8 +30,14 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="relative">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-myai-primary to-myai-accent flex items-center justify-center font-bold text-white text-lg">
-                M
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-myai-primary to-myai-accent flex items-center justify-center p-1.5">
+                <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="12" y="4" width="4" height="8" rx="1" fill="white"/>
+                  <rect x="24" y="4" width="4" height="8" rx="1" fill="white"/>
+                  <rect x="10" y="12" width="20" height="16" rx="3" fill="white"/>
+                  <circle cx="20" cy="20" r="2" fill="#7C4DFF" opacity="0.9"/>
+                  <path d="M 20 28 Q 20 32, 18 34 Q 16 36, 20 36" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
+                </svg>
               </div>
               <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-myai-primary to-myai-accent opacity-50 blur-md group-hover:opacity-75 transition-opacity" />
             </div>

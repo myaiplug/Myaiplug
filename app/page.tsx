@@ -13,6 +13,7 @@ import ResourceVault from '@/components/ResourceVault';
 import Pricing from '@/sections/Pricing';
 import LeaderboardTeaser from '@/components/LeaderboardTeaser';
 import CreatorProfilePreview from '@/components/CreatorProfilePreview';
+import BlogSection from '@/components/BlogSection';
 import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
 import Link from 'next/link';
@@ -36,6 +37,7 @@ export default function Home() {
         <Pricing />
         <LeaderboardTeaser />
         <CreatorProfilePreview />
+        <BlogSection />
         <FAQ />
         <CTA />
         <CTA />
@@ -45,7 +47,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto text-center">
             <div className="mb-6">
               <h3 className="font-display text-2xl font-bold mb-2">
-                MyAiPlug™ <span className="gradient-text">NoDAW</span>
+                MyAiPlug™
               </h3>
               <p className="text-gray-400 text-sm">
                 AI-powered audio/video pipeline with real QC, badges, and a public creator score

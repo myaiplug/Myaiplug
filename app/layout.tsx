@@ -3,12 +3,12 @@ import './globals.css'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
 
 export const metadata: Metadata = {
-  title: 'MyAiPlug™ NoDAW — Professional AI Audio Tools',
+  title: 'MyAiPlug™ — Professional AI Audio Tools',
   description: 'Transform your audio with studio-grade AI tools. ScrewAI, HalfScrew, StemSplit and more. Plug in. Create. Release. Collect.',
-  keywords: ['AI audio', 'audio tools', 'DAWless', 'music production', 'MyAiPlug', 'NoDAW'],
+  keywords: ['AI audio', 'audio tools', 'DAWless', 'music production', 'MyAiPlug'],
   authors: [{ name: 'MyAiPlug', url: 'https://myaiplug.com' }],
   openGraph: {
-    title: 'MyAiPlug™ NoDAW — Professional AI Audio Tools',
+    title: 'MyAiPlug™ — Professional AI Audio Tools',
     description: 'Transform your audio with studio-grade AI tools. Plug in. Create. Release. Collect.',
     url: 'https://myaiplug.com',
     siteName: 'MyAiPlug',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MyAiPlug™ NoDAW',
+    title: 'MyAiPlug™',
     description: 'Professional AI Audio Tools',
   },
 }
