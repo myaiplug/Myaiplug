@@ -18,6 +18,8 @@ export default function AudioToSocialContent() {
     genre?: string;
     mood?: string;
     duration?: string;
+    bpm?: number;
+    key?: string;
   } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,40 +36,34 @@ export default function AudioToSocialContent() {
     
     setGenerating(true);
     
-    // TODO: Replace with actual API call that processes audio and generates content
-    // For now, simulate generation with audio analysis
-    setTimeout(() => {
-      // Simulated audio analysis
-      setAudioAnalysis({
-        title: audioFile.name.replace(/\.[^/.]+$/, ''),
-        genre: 'Hip-Hop/Trap',
-        mood: 'Energetic & Dark',
-        duration: '2:45',
+    try {
+      // Create FormData and append the audio file
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+
+      // Call the API endpoint
+      const response = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData,
       });
 
-      setGeneratedContent([
-        {
-          platform: 'Instagram',
-          content: `🔥 New heat alert! Just dropped "${audioFile.name.replace(/\.[^/.]+$/, '')}" - this one hits different 🎵\n\nFull track streaming now 👆`,
-          hashtags: ['#NewMusic', '#HipHop', '#Trap', '#Producer', '#MusicProduction'],
-        },
-        {
-          platform: 'Twitter/X',
-          content: `New track "${audioFile.name.replace(/\.[^/.]+$/, '')}" out now 🔊\n\nEnergetic vibes with dark undertones. Stream link below 👇`,
-          hashtags: ['#NewRelease', '#IndieMusic', '#MusicIsLife'],
-        },
-        {
-          platform: 'TikTok',
-          content: `POV: You just discovered your new favorite song 🎧✨\n\n"${audioFile.name.replace(/\.[^/.]+$/, '')}" available everywhere!`,
-          hashtags: ['#FYP', '#NewMusic', '#MusicTikTok', '#Viral', '#Producer'],
-        },
-        {
-          platform: 'YouTube',
-          content: `🎵 ${audioFile.name.replace(/\.[^/.]+$/, '')} | Official Audio\n\nExperience the energy of this genre-bending track. Perfect for your workout, gaming session, or just vibing.\n\n🎧 Stream on all platforms\n📱 Follow for more music\n💬 Drop a comment and let me know what you think!\n\n#NewMusic #HipHop #Trap #IndieArtist #MusicProduction`,
-        },
-      ]);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process audio');
+      }
+
+      const data = await response.json();
+
+      // Set the audio analysis and generated content from the API
+      setAudioAnalysis(data.audioAnalysis);
+      setGeneratedContent(data.generatedContent);
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      // Show error to user (could add a toast notification)
+      alert(error instanceof Error ? error.message : 'Failed to process audio. Please try again.');
+    } finally {
       setGenerating(false);
-    }, 2500);
+    }
   };
 
   const copyToClipboard = (text: string, hashtags?: string[]) => {
@@ -164,22 +160,42 @@ export default function AudioToSocialContent() {
           >
             <h4 className="text-sm font-semibold text-myai-accent mb-3">Audio Analysis</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-gray-400">Title:</span>{' '}
-                <span className="text-white font-medium">{audioAnalysis.title}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Duration:</span>{' '}
-                <span className="text-white font-medium">{audioAnalysis.duration}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Genre:</span>{' '}
-                <span className="text-white font-medium">{audioAnalysis.genre}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Mood:</span>{' '}
-                <span className="text-white font-medium">{audioAnalysis.mood}</span>
-              </div>
+              {audioAnalysis.title && (
+                <div>
+                  <span className="text-gray-400">Title:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.title}</span>
+                </div>
+              )}
+              {audioAnalysis.duration && (
+                <div>
+                  <span className="text-gray-400">Duration:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.duration}</span>
+                </div>
+              )}
+              {audioAnalysis.genre && (
+                <div>
+                  <span className="text-gray-400">Genre:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.genre}</span>
+                </div>
+              )}
+              {audioAnalysis.mood && (
+                <div>
+                  <span className="text-gray-400">Mood:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.mood}</span>
+                </div>
+              )}
+              {audioAnalysis.bpm && (
+                <div>
+                  <span className="text-gray-400">BPM:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.bpm}</span>
+                </div>
+              )}
+              {audioAnalysis.key && (
+                <div>
+                  <span className="text-gray-400">Key:</span>{' '}
+                  <span className="text-white font-medium">{audioAnalysis.key}</span>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

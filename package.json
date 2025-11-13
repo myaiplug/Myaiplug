@@ -17,6 +17,8 @@
     "@types/react-dom": "^19.2.1",
     "@types/three": "^0.180.0",
     "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^16.0.2",
     "framer-motion": "^12.23.24",
     "gsap": "^3.13.0",
     "next": "^14.2.33",
