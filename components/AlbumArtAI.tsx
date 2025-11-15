@@ -19,19 +19,46 @@ export default function AlbumArtAI() {
     
     setGenerating(true);
     
-    // Pre-prompt construction for hip-hop/rap/trap style
-    const prePrompt = `Professional ${artType} cover art for hip-hop, rap, trap music. Industry quality, minimalistic, centered composition, square format. `;
-    const fullPrompt = prePrompt + prompt;
-    
-    // TODO: Replace with actual API call
-    // For now, simulate generation
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/ai/generate-cover', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          type: artType,
+          quality: 'free', // Can be upgraded to 'pro' based on user tier
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGeneratedImages(
+          data.images.map((url: string, idx: number) => ({
+            url,
+            isPro: idx > 0, // First image is free, rest are pro
+          }))
+        );
+      } else {
+        console.error('Generation failed:', data.error);
+        // Fallback to placeholder on error
+        setGeneratedImages([
+          { url: '/placeholder-cover-1.jpg', isPro: false },
+          { url: '/placeholder-cover-2.jpg', isPro: true },
+        ]);
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      // Fallback to placeholder on error
       setGeneratedImages([
         { url: '/placeholder-cover-1.jpg', isPro: false },
         { url: '/placeholder-cover-2.jpg', isPro: true },
       ]);
+    } finally {
       setGenerating(false);
-    }, 3000);
+    }
   };
 
   return (
