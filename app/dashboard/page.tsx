@@ -220,7 +220,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           <Link
             href="/dashboard/portfolio"
@@ -232,6 +232,19 @@ export default function Dashboard() {
             </h3>
             <p className="text-sm text-gray-400">
               Showcase your best work
+            </p>
+          </Link>
+
+          <Link
+            href="/blog"
+            className="p-6 bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-xl hover:border-white/20 transition-colors group"
+          >
+            <div className="text-3xl mb-3">📝</div>
+            <h3 className="font-semibold text-white mb-1 group-hover:text-myai-accent transition-colors">
+              Browse Blog
+            </h3>
+            <p className="text-sm text-gray-400">
+              Learn tips and AI remix tools
             </p>
           </Link>
 
