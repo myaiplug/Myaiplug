@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import NewsletterSignup from './NewsletterSignup';
 
 const blogArticles = [
   {
@@ -155,34 +156,8 @@ export default function BlogSection() {
           </Link>
         </motion.div>
 
-        {/* Newsletter Signup */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-16 bg-gradient-to-br from-myai-primary/10 to-myai-accent/10 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center"
-        >
-          <h3 className="text-2xl font-bold mb-3">
-            Never Miss an Update
-          </h3>
-          <p className="text-gray-400 mb-6 max-w-lg mx-auto">
-            Get the latest articles, tips, and music production insights delivered straight to your inbox
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 px-4 py-3 rounded-lg bg-black/40 border border-white/10 focus:border-myai-primary outline-none text-white placeholder-gray-500"
-            />
-            <button className="px-6 py-3 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-semibold rounded-lg hover:scale-105 transition-transform duration-200 whitespace-nowrap">
-              Subscribe
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 mt-3">
-            Join 10,000+ creators. Unsubscribe anytime.
-          </p>
-        </motion.div>
+        {/* Newsletter Signup Component */}
+        <NewsletterSignup />
       </div>
     </section>
   );
