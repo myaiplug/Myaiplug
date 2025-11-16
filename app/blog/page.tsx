@@ -7,6 +7,7 @@ import { BlogPost, RemixFormat } from '@/lib/types';
 import { BLOG_CONTENT_COSTS, BLOG_GENERATION_POINTS, BLOG_BADGES } from '@/lib/constants/pricing';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import Header from '@/components/Header';
 
 const toneOptions = [
   { value: 'professional', label: 'Professional' },
@@ -267,7 +268,9 @@ function BlogPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-myai-bg-dark text-white pt-24 pb-12 px-6">
+    <>
+      <Header />
+      <div className="min-h-screen bg-myai-bg-dark text-white pt-24 pb-12 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Back to Home Link */}
         <Link 
@@ -694,6 +697,7 @@ function BlogPageContent() {
         </AnimatePresence>
       </div>
     </div>
+    </>
   );
 }
 
