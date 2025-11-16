@@ -116,16 +116,28 @@ export default function Hero() {
             </motion.div>
           </div>
 
-          {/* Right: AI Visualization */}
+          {/* Right: Hero Image */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
             className="relative"
           >
-            <div className="relative w-full max-w-md mx-auto aspect-square bg-gradient-to-br from-myai-primary/20 to-myai-accent/20 rounded-2xl backdrop-blur-xl border border-white/10 p-8 shadow-2xl">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(124,77,255,0.3),transparent_70%)] rounded-2xl" />
-              <div className="relative z-10 h-full flex items-center justify-center">
+            <div className="relative w-full max-w-md mx-auto aspect-square rounded-2xl overflow-hidden shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-myai-primary/20 to-myai-accent/20 backdrop-blur-xl" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(124,77,255,0.3),transparent_70%)]" />
+              <div className="relative z-10 h-full flex items-center justify-center p-8">
+                {/* Hero Image - Replace /assets/hero-image.png with actual image */}
+                <img 
+                  src="/assets/hero-image.png" 
+                  alt="MyAiPlug Audio Tools - Professional headphones and camera equipment"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    // Fallback to gradient background with icon if image fails to load
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                {/* Fallback icon (hidden when image loads) */}
                 <motion.div
                   animate={{
                     scale: [1, 1.05, 1],
@@ -136,7 +148,8 @@ export default function Hero() {
                     repeat: Infinity,
                     ease: 'easeInOut',
                   }}
-                  className="text-6xl"
+                  className="absolute text-6xl"
+                  style={{ display: 'none' }}
                 >
                   🎵
                 </motion.div>

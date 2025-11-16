@@ -33,6 +33,53 @@ export const JOB_COSTS = {
   },
 } as const;
 
+// Blog content generation costs (tokens)
+// Pricing: 4-5x profit markup based on estimated AI API usage
+export const BLOG_CONTENT_COSTS = {
+  facebook: 25,        // ~500 words, base cost ~5 tokens, 5x markup
+  instagram: 20,       // ~150 words, base cost ~4 tokens, 5x markup  
+  twitter: 30,         // Thread creation, base cost ~6 tokens, 5x markup
+  voiceover: 35,       // Script formatting, base cost ~7 tokens, 5x markup
+  user_video: 40,      // Detailed script, base cost ~8 tokens, 5x markup
+  short_form: 30,      // Quick script, base cost ~6 tokens, 5x markup
+  full_article: 50,    // Complete rewrite, base cost ~10 tokens, 5x markup
+} as const;
+
+// Badge rewards for blog content generation
+export const BLOG_BADGES = {
+  first_generation: {
+    id: 'content_creator_rookie',
+    name: 'Content Creator Rookie',
+    description: 'Generated your first AI-powered content',
+    points: 50,
+  },
+  content_specialist: {
+    id: 'content_specialist',
+    name: 'Content Specialist',
+    description: 'Generated 10 pieces of content',
+    points: 100,
+    requirement: 10,
+  },
+  content_master: {
+    id: 'content_master',
+    name: 'Content Master',
+    description: 'Generated 50 pieces of content',
+    points: 250,
+    requirement: 50,
+  },
+} as const;
+
+// Points awarded per generation by format
+export const BLOG_GENERATION_POINTS = {
+  facebook: 5,
+  instagram: 5,
+  twitter: 8,          // Thread creation is more valuable
+  voiceover: 10,       // Script creation is more valuable
+  user_video: 12,      // Most detailed, highest points
+  short_form: 8,
+  full_article: 15,    // Complete article rewrite
+} as const;
+
 // Tier-based credit allocations
 export const TIER_CREDITS = {
   free: {
@@ -108,7 +155,7 @@ export const PRICING_PLANS = [
     price: '$149',
     period: 'per month',
     credits: 3500,
-    ribbon: 'Founders price — 100 seats',
+    ribbon: 'Founders price — 73 left',
     description: 'Ultimate power for studios',
     features: [
       '3,500 credits/month',

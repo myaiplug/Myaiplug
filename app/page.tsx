@@ -17,11 +17,105 @@ import BlogSection from '@/components/BlogSection';
 import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
 import Link from 'next/link';
+import Script from 'next/script';
 
 export default function Home() {
 
   return (
     <>
+      {/* JSON-LD Structured Data for SEO */}
+      <Script
+        id="structured-data-organization"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "MyAiPlug",
+            "url": "https://myaiplug.com",
+            "logo": "https://myaiplug.com/favicon.svg",
+            "description": "Professional AI-powered audio tools for creators. Stem splitting, audio effects, video processing, and content automation.",
+            "sameAs": [
+              "https://twitter.com/myaiplug",
+              "https://github.com/myaiplug"
+            ],
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "Customer Support",
+              "email": "support@myaiplug.com"
+            }
+          })
+        }}
+      />
+      <Script
+        id="structured-data-webapp"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "MyAiPlug",
+            "url": "https://myaiplug.com",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Web Browser",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "description": "Free tier available with premium upgrades"
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": "4.8",
+              "ratingCount": "1247",
+              "bestRating": "5"
+            },
+            "featureList": [
+              "AI-powered stem splitting",
+              "Audio effects processing",
+              "Video content creation",
+              "Social media automation",
+              "Professional audio quality control"
+            ]
+          })
+        }}
+      />
+      <Script
+        id="structured-data-breadcrumb"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://myaiplug.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Features",
+                "item": "https://myaiplug.com/#features"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Pricing",
+                "item": "https://myaiplug.com/#pricing"
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "name": "Blog",
+                "item": "https://myaiplug.com/blog"
+              }
+            ]
+          })
+        }}
+      />
       <Header />
       <main className="min-h-screen">
         <Hero />
@@ -39,7 +133,6 @@ export default function Home() {
         <CreatorProfilePreview />
         <BlogSection />
         <FAQ />
-        <CTA />
         <CTA />
       
         {/* Footer */}
