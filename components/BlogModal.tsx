@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 
 export interface BlogArticle {
   id: number;
@@ -22,6 +23,15 @@ interface BlogModalProps {
 }
 
 export default function BlogModal({ article, onClose }: BlogModalProps) {
+  // Sanitize HTML content to prevent XSS attacks
+  const sanitizedContent = useMemo(() => {
+    if (!article?.fullContent) return '';
+    return DOMPurify.sanitize(article.fullContent, {
+      ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'strong', 'em', 'br', 'a'],
+      ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
+    });
+  }, [article?.fullContent]);
+
   useEffect(() => {
     if (article) {
       document.body.style.overflow = 'hidden';
@@ -105,10 +115,10 @@ export default function BlogModal({ article, onClose }: BlogModalProps) {
           {/* Article Content */}
           <div className="p-8">
             <div className="prose prose-invert prose-lg max-w-none">
-              {article.fullContent ? (
+              {sanitizedContent ? (
                 <div
                   className="text-gray-300 leading-relaxed space-y-6"
-                  dangerouslySetInnerHTML={{ __html: article.fullContent }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedContent }}
                 />
               ) : (
                 <div className="text-gray-300 leading-relaxed space-y-6">
