@@ -19,9 +19,45 @@ export default function YouTubeToSocialAI() {
     
     setGenerating(true);
     
-    // TODO: Replace with actual API call
-    // For now, simulate generation
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/ai/youtube-to-social', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          youtubeUrl: youtubeUrl.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGeneratedContent(data.content);
+      } else {
+        console.error('Generation failed:', data.error);
+        // Fallback to placeholder on error
+        setGeneratedContent([
+          {
+            platform: 'Instagram',
+            content: 'Check out my latest track! 🎵 Link in bio',
+            hashtags: ['#NewMusic', '#HipHop', '#Trap'],
+          },
+          {
+            platform: 'Twitter/X',
+            content: 'New heat dropped! 🔥 Listen now',
+            hashtags: ['#Music', '#NewRelease'],
+          },
+          {
+            platform: 'TikTok',
+            content: 'Full track on YouTube! 🎶',
+            hashtags: ['#FYP', '#Music', '#Viral'],
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      // Fallback to placeholder on error
       setGeneratedContent([
         {
           platform: 'Instagram',
@@ -39,8 +75,9 @@ export default function YouTubeToSocialAI() {
           hashtags: ['#FYP', '#Music', '#Viral'],
         },
       ]);
+    } finally {
       setGenerating(false);
-    }, 2500);
+    }
   };
 
   return (
