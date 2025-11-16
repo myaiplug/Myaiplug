@@ -6,7 +6,7 @@ import NewsletterSignup from './NewsletterSignup';
 
 const blogArticles = [
   {
-    id: 1,
+    id: '1',
     title: "The Rise of AI in Music Production: A New Era of Creativity",
     excerpt: "Discover how AI-powered tools are revolutionizing the music production landscape, empowering creators to produce studio-quality tracks without expensive hardware or years of training.",
     author: "Sarah Mitchell",
@@ -17,7 +17,7 @@ const blogArticles = [
     gradient: "from-purple-500/20 to-blue-500/20",
   },
   {
-    id: 2,
+    id: '2',
     title: "From Bedroom to Billboard: Success Stories of Independent Artists",
     excerpt: "Learn how modern creators are leveraging AI audio tools to compete with major labels. Real stories from artists who transformed their bedroom setups into chart-topping production studios.",
     author: "Marcus Chen",
@@ -28,7 +28,7 @@ const blogArticles = [
     gradient: "from-pink-500/20 to-orange-500/20",
   },
   {
-    id: 3,
+    id: '3',
     title: "Mastering the Art of Social Media for Musicians",
     excerpt: "A comprehensive guide to building your online presence, growing your fanbase, and maximizing engagement across Instagram, TikTok, YouTube, and beyond. Learn the strategies that work in 2025.",
     author: "Zara Johnson",
@@ -39,7 +39,7 @@ const blogArticles = [
     gradient: "from-green-500/20 to-teal-500/20",
   },
   {
-    id: 4,
+    id: '4',
     title: "Quality Control in the Age of AI: Ensuring Professional Sound",
     excerpt: "Dive deep into the world of audio QC. Understand LUFS, peak detection, clipping prevention, and how AI-powered quality control ensures your tracks meet industry standards every time.",
     author: "Dr. Alex Rodriguez",
@@ -119,7 +119,7 @@ export default function BlogSection() {
                 {/* Read More Link */}
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <Link 
-                    href={`#blog-${article.id}`}
+                    href={`/blog?article=${article.id}`}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-myai-primary group-hover:text-myai-accent transition-colors duration-300"
                   >
                     Read Full Article
