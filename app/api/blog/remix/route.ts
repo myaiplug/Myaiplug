@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
 
     // Get API key from environment
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    
     if (!apiKey) {
       return NextResponse.json(
         { error: 'API key not configured' },
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     // Build tone and demographic modifiers
     const toneModifier = tone ? `Use a ${tone} tone. ` : '';
