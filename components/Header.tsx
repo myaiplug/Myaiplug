@@ -21,7 +21,8 @@ export default function Header() {
     { href: '#pricing', label: 'Pricing' },
     { href: '#gallery', label: 'Gallery' },
     { href: '#leaderboard', label: 'Leaderboard' },
-    { href: '/blog', label: 'Blog' },
+    { href: '#blog', label: 'Blog' },
+    { href: '/blog', label: 'All Posts' },
   ];
 
   return (
