@@ -12,11 +12,20 @@ interface JobData {
   fileName: string;
   preset: string;
   proPreview: boolean;
+  audioFile?: File;
   result?: {
     url: string;
     timeSaved: string;
     points: number;
     badge?: string;
+    audioAnalysis?: {
+      title: string;
+      genre: string;
+      mood: string;
+      duration: string;
+      bpm: number;
+      key: string;
+    };
   };
 }
 
@@ -24,6 +33,7 @@ export default function MultiStepFunnel() {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const [jobData, setJobData] = useState<JobData>({
     fileName: '',
     preset: 'basic_chain',
@@ -51,12 +61,13 @@ export default function MultiStepFunnel() {
     { name: 'Deliver', icon: '📦' },
   ];
 
-  // Simulated file upload
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload with API call
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setJobData({ ...jobData, fileName: file.name });
+    setError(null);
+    setJobData({ ...jobData, fileName: file.name, audioFile: file });
     setUploadProgress(0);
 
     // Simulate upload progress
@@ -72,33 +83,68 @@ export default function MultiStepFunnel() {
     }, 200);
   };
 
-  // Simulated processing
-  const startProcessing = () => {
+  // Real processing with API
+  const startProcessing = async () => {
+    if (!jobData.audioFile) {
+      setError('No file selected');
+      return;
+    }
+
     setCurrentStep('processing');
     setProcessingStage(0);
+    setError(null);
 
-    // Simulate processing stages
-    const interval = setInterval(() => {
-      setProcessingStage((prev) => {
-        if (prev >= processingStages.length - 1) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setJobData({
-              ...jobData,
-              result: {
-                url: '/demo-result.mp3',
-                timeSaved: '1m12s',
-                points: 125,
-                badge: 'Upload Hero I',
-              },
-            });
-            setCurrentStep('result');
-          }, 1000);
-          return prev;
-        }
-        return prev + 1;
+    try {
+      // Simulate processing stages with progress
+      const stageInterval = setInterval(() => {
+        setProcessingStage((prev) => {
+          if (prev >= processingStages.length - 1) {
+            clearInterval(stageInterval);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+
+      // Call the audio upload API
+      const formData = new FormData();
+      formData.append('audio', jobData.audioFile);
+
+      const response = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData,
       });
-    }, 1500);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process audio');
+      }
+
+      const data = await response.json();
+
+      // Complete all stages
+      setProcessingStage(processingStages.length - 1);
+
+      // Set result with API data
+      setTimeout(() => {
+        setJobData({
+          ...jobData,
+          result: {
+            url: '/demo-result.mp3',
+            timeSaved: '1m12s',
+            points: 125,
+            badge: 'Upload Hero I',
+            audioAnalysis: data.audioAnalysis,
+          },
+        });
+        setCurrentStep('result');
+      }, 1000);
+
+    } catch (err) {
+      console.error('Processing error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process audio. Please try again.');
+      setCurrentStep('choose'); // Go back to choose step
+    }
   };
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
@@ -146,6 +192,13 @@ export default function MultiStepFunnel() {
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Step Content */}
         <div className="bg-myai-bg-panel/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 min-h-[400px]">
           <AnimatePresence mode="wait">
@@ -170,7 +223,7 @@ export default function MultiStepFunnel() {
                   <p className="text-lg text-gray-300 mb-2">
                     Drag & drop or click to browse
                   </p>
-                  <p className="text-sm text-gray-500">Supports audio and video files</p>
+                  <p className="text-sm text-gray-500">Supports audio and video files (max 50MB)</p>
                 </label>
                 {uploadProgress > 0 && uploadProgress < 100 && (
                   <div className="w-full max-w-md mt-6">
@@ -271,7 +324,7 @@ export default function MultiStepFunnel() {
                   ))}
                 </div>
                 <div className="text-center text-gray-400">
-                  <p className="mb-2">Estimated time remaining: ~30 seconds</p>
+                  <p className="mb-2">Analyzing your audio file...</p>
                   <p className="text-sm">Estimated credits: ~{presets.find(p => p.id === jobData.preset)?.cost}</p>
                 </div>
               </motion.div>
@@ -289,6 +342,39 @@ export default function MultiStepFunnel() {
                   🎉 Processing Complete!
                 </h3>
                 
+                {/* Audio Analysis Results */}
+                {jobData.result.audioAnalysis && (
+                  <div className="bg-white/5 rounded-xl p-6 mb-6">
+                    <h4 className="text-lg font-semibold mb-4 text-myai-accent">Audio Analysis</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Title:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.title}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Genre:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.genre}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Mood:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.mood}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Duration:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.duration}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">BPM:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.bpm}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Key:</span>{' '}
+                        <span className="text-white font-medium">{jobData.result.audioAnalysis.key}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Badge Award Popup */}
                 {jobData.result.badge && (
                   <motion.div
@@ -338,8 +424,15 @@ export default function MultiStepFunnel() {
                   <p className="text-sm text-gray-400 mb-4">
                     Ready to unlock more powerful features?
                   </p>
-                  <button className="px-6 py-2 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors">
-                    Unlock Level 2 (Pro Chains) →
+                  <button 
+                    onClick={() => {
+                      setCurrentStep('upload');
+                      setJobData({ fileName: '', preset: 'basic_chain', proPreview: false });
+                      setUploadProgress(0);
+                    }}
+                    className="px-6 py-2 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
+                  >
+                    Process Another File →
                   </button>
                 </div>
               </motion.div>
