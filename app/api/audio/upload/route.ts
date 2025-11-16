@@ -47,6 +47,7 @@ function generateSocialContent(analysis: ReturnType<typeof analyzeAudio>) {
     {
       platform: 'YouTube',
       content: `🎵 ${analysis.title} | Official Audio\n\nExperience the ${analysis.mood.toLowerCase()} energy of this ${analysis.genre.toLowerCase()} track. Perfect for your workout, gaming session, or just vibing.\n\n🎹 Key: ${analysis.key}\n🥁 BPM: ${analysis.bpm}\n⏱️ Duration: ${analysis.duration}\n\n🎧 Stream on all platforms\n📱 Follow for more music\n💬 Drop a comment and let me know what you think!\n\n#NewMusic #${analysis.genre.split('/')[0].replace(/\s+/g, '')} #IndieArtist #MusicProduction`,
+      hashtags: [],
     },
     {
       platform: 'Facebook',
