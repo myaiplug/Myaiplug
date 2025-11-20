@@ -369,9 +369,12 @@ export default function MiniStudio() {
     // Apply settings for each module
     chain.moduleSettings.forEach(setting => {
       const mod = modules[setting.moduleIndex];
-      if (mod) {
+      if (mod && mod.params) {
         setting.paramValues.forEach((val, paramIdx) => {
-          mod.params[paramIdx]?.oninput(val);
+          const param = mod.params[paramIdx];
+          if (param && typeof param.oninput === 'function') {
+            param.oninput(val);
+          }
         });
       }
     });

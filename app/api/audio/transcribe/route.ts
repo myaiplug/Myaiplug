@@ -100,11 +100,16 @@ Format as JSON matching this structure:
       // Try to parse JSON from response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const analysis = JSON.parse(jsonMatch[0]);
-        if (analysis.isFeatured) {
-          analysis.featuredReason = "High overall score with strong commercial appeal";
+        try {
+          const analysis = JSON.parse(jsonMatch[0]);
+          if (analysis.isFeatured) {
+            analysis.featuredReason = "High overall score with strong commercial appeal";
+          }
+          return analysis;
+        } catch (parseError) {
+          console.error('Failed to parse GenAI JSON response:', parseError);
+          // Fall through to simulated analysis
         }
-        return analysis;
       }
     } catch (error) {
       console.error('GenAI analysis error:', error);

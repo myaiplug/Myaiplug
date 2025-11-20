@@ -2,6 +2,20 @@
 import type { Creation } from '../types';
 import { generateSecureId } from '../utils/secureId';
 
+// Constants
+const DEFAULT_BASE_SCORE = 70;
+const AUDIO_THRESHOLD = 85;
+const OTHER_CONTENT_THRESHOLD = 80;
+
+// Note: In-memory storage is used for development and demo purposes.
+// For production deployment:
+// 1. Replace Map storage with database queries (PostgreSQL, MongoDB, etc.)
+// 2. Implement proper data persistence
+// 3. Add data migration scripts
+// 4. Consider caching strategy for frequently accessed data
+// 5. Implement proper backup/recovery procedures
+// Data stored in memory will be lost on server restart.
+
 export interface FeaturedContent {
   id: string;
   userId: string;
@@ -82,7 +96,7 @@ function calculateContentScore(submission: ContentSubmission): number {
   }
 
   // If no analysis data available, return base score
-  return score || 70;
+  return score || DEFAULT_BASE_SCORE;
 }
 
 /**
@@ -91,8 +105,8 @@ function calculateContentScore(submission: ContentSubmission): number {
 export async function submitForFeatured(submission: ContentSubmission): Promise<boolean> {
   const score = calculateContentScore(submission);
   
-  // Only consider content with score >= 85 for audio, or high engagement for other types
-  const threshold = submission.contentType === 'audio' ? 85 : 80;
+  // Only consider content with score >= threshold based on content type
+  const threshold = submission.contentType === 'audio' ? AUDIO_THRESHOLD : OTHER_CONTENT_THRESHOLD;
   
   if (score < threshold) {
     return false;
@@ -269,7 +283,7 @@ export function getAllFeaturedContent(
  */
 export function qualifiesForFeatured(submission: ContentSubmission): boolean {
   const score = calculateContentScore(submission);
-  const threshold = submission.contentType === 'audio' ? 85 : 80;
+  const threshold = submission.contentType === 'audio' ? AUDIO_THRESHOLD : OTHER_CONTENT_THRESHOLD;
   return score >= threshold;
 }
 
