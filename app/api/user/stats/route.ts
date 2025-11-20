@@ -9,6 +9,8 @@ import { getUserJobs } from '@/lib/services/jobService';
 import { getUserCreations } from '@/lib/services/creationService';
 import { getReferralHistory } from '@/lib/services/referralService';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');

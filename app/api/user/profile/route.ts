@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserBySession, updateUserProfile, updateProfilePrivacy } from '@/lib/services/userService';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Get user profile
 export async function GET(request: NextRequest) {
   try {
