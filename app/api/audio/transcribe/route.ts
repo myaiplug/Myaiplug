@@ -195,12 +195,19 @@ export async function POST(request: NextRequest) {
     let analysis: AnalysisResult | null = null;
     if (enableAnalysis) {
       analysis = await analyzeWithAI(transcription.lyrics, useGenAI);
+      
+      // Auto-submit for featured if score is high enough
+      if (analysis.isFeatured && analysis.overallScore >= 90) {
+        // This would be called with actual user data in production
+        // For now, just mark it as featured-worthy in the response
+      }
     }
 
     return NextResponse.json({
       success: true,
       transcription,
       analysis,
+      featured: analysis?.isFeatured || false,
       pricing: {
         transcriptionCost: useGenAI ? 50 : 0, // credits
         analysisCost: enableAnalysis ? 100 : 0, // credits
