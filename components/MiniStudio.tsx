@@ -24,6 +24,87 @@ export default function MiniStudio() {
   const [showDiscount, setShowDiscount] = useState(false);
   const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
+  const [showAllModules, setShowAllModules] = useState(false);
+  const [qualityMetrics, setQualityMetrics] = useState({
+    peakLevel: 0,
+    isClipping: false,
+    lufs: -14, // Target for streaming platforms
+  });
+  const [showTranscription, setShowTranscription] = useState(false);
+  const [transcriptionData, setTranscriptionData] = useState<any>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  
+  // Preset Chains - combinations of effects for different purposes
+  interface PresetChain {
+    name: string;
+    description: string;
+    moduleIndices: number[]; // indices of modules to activate
+    moduleSettings: Array<{ moduleIndex: number; paramValues: number[] }>;
+  }
+  
+  const PRESET_CHAINS: PresetChain[] = [
+    {
+      name: "Warmth Master",
+      description: "Professional warmth and clarity",
+      moduleIndices: [0, 2, 4], // Warmth, HalfScrew, EQ3
+      moduleSettings: [
+        { moduleIndex: 0, paramValues: [6] }, // Warmth: 6
+        { moduleIndex: 2, paramValues: [3] }, // HalfScrew: Slight
+        { moduleIndex: 4, paramValues: [2, 1, 3] }, // EQ3: slight boost
+      ],
+    },
+    {
+      name: "Vocal Polish",
+      description: "Perfect for vocals and podcasts",
+      moduleIndices: [0, 1, 4, 5], // Warmth, Widener, EQ3, Reverb
+      moduleSettings: [
+        { moduleIndex: 0, paramValues: [4] },
+        { moduleIndex: 1, paramValues: [0.6, 0] },
+        { moduleIndex: 4, paramValues: [-2, 2, 4] }, // Vocal Shine preset
+        { moduleIndex: 5, paramValues: [0.25, 0.12] }, // Plate reverb
+      ],
+    },
+    {
+      name: "Bass Heavy",
+      description: "Deep bass with controlled highs",
+      moduleIndices: [0, 4], // Warmth, EQ3
+      moduleSettings: [
+        { moduleIndex: 0, paramValues: [8] },
+        { moduleIndex: 4, paramValues: [6, 0, -1] }, // Bass Boost
+      ],
+    },
+    {
+      name: "Stereo Wide",
+      description: "Maximum stereo width",
+      moduleIndices: [1, 4, 5], // Widener, EQ3, Reverb
+      moduleSettings: [
+        { moduleIndex: 1, paramValues: [1.0, 0] }, // Superwide
+        { moduleIndex: 4, paramValues: [0, 0, 2] },
+        { moduleIndex: 5, paramValues: [0.35, 0.22] }, // Hall
+      ],
+    },
+    {
+      name: "Lo-Fi Vibe",
+      description: "Vintage tape aesthetics",
+      moduleIndices: [0, 2, 4], // Warmth, HalfScrew, EQ3
+      moduleSettings: [
+        { moduleIndex: 0, paramValues: [6] }, // Lo-Fi Tape
+        { moduleIndex: 2, paramValues: [8] }, // Heavy screw
+        { moduleIndex: 4, paramValues: [-4, -3, -2] }, // Lo-Fi EQ
+      ],
+    },
+    {
+      name: "Broadcast Ready",
+      description: "Radio-ready professional sound",
+      moduleIndices: [0, 1, 3, 4], // Warmth, Widener, reTUNE, EQ3
+      moduleSettings: [
+        { moduleIndex: 0, paramValues: [5] },
+        { moduleIndex: 1, paramValues: [0.7, 0] },
+        { moduleIndex: 3, paramValues: [0] }, // 440 Hz
+        { moduleIndex: 4, paramValues: [0, 2, 2] },
+      ],
+    },
+  ];
 
   // Simple helper copy for tooltips (fallback to module.info)
   const TOOLTIP: Record<string, string> = {
@@ -53,7 +134,16 @@ export default function MiniStudio() {
 
     const updateMeter = () => {
       if (engineRef.current) {
-        setMeterLevel(engineRef.current.getMeterLevel());
+        const level = engineRef.current.getMeterLevel();
+        setMeterLevel(level);
+        
+        // Update quality metrics
+        const peakLevel = level / 100;
+        setQualityMetrics(prev => ({
+          ...prev,
+          peakLevel,
+          isClipping: peakLevel > 0.95, // Clipping threshold
+        }));
       }
       animFrameRef.current = requestAnimationFrame(updateMeter);
     };
@@ -224,6 +314,39 @@ export default function MiniStudio() {
     await engineRef.current.startPlayers();
   };
 
+  const handleTranscribe = async (enableAnalysis: boolean = false) => {
+    setTranscribing(true);
+    try {
+      const response = await fetch('/api/audio/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioFileName: 'uploaded_audio.mp3',
+          useGenAI: true,
+          enableAnalysis,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Transcription failed');
+      }
+
+      const data = await response.json();
+      setTranscriptionData(data);
+      setShowTranscription(true);
+      
+      if (data.analysis?.isFeatured) {
+        showToast('🌟 This track has hit potential!');
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      showToast('Transcription failed. Try again.');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
   const toggleModuleActive = (index: number) => {
     const mod = modules[index];
     if (!mod || !mod.setActive) return;
@@ -231,6 +354,33 @@ export default function MiniStudio() {
     next[index] = !next[index];
     setActiveModules(next);
     mod.setActive(next[index]);
+  };
+
+  const applyPresetChain = (chain: PresetChain) => {
+    // First, deactivate all modules
+    const newActiveModules = modules.map(() => false);
+    
+    // Activate only modules in the chain
+    chain.moduleIndices.forEach(idx => {
+      newActiveModules[idx] = true;
+      modules[idx]?.setActive?.(true);
+    });
+    
+    // Apply settings for each module
+    chain.moduleSettings.forEach(setting => {
+      const mod = modules[setting.moduleIndex];
+      if (mod && mod.params) {
+        setting.paramValues.forEach((val, paramIdx) => {
+          const param = mod.params[paramIdx];
+          if (param && typeof param.oninput === 'function') {
+            param.oninput(val);
+          }
+        });
+      }
+    });
+    
+    setActiveModules(newActiveModules);
+    showToast(`Applied chain: ${chain.name}`);
   };
 
   return (
@@ -399,8 +549,8 @@ export default function MiniStudio() {
               <p className="text-sm text-gray-300 mb-6">{currentMod?.info || "Lite Demo — Full version in Studio"}</p>
 
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Active Modules</div>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {modules.map((m, idx) => (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {modules.slice(0, showAllModules ? modules.length : 4).map((m, idx) => (
                   <div key={m.name + idx} className="relative group">
                     <button
                       onClick={() => toggleModuleActive(idx)}
@@ -417,37 +567,106 @@ export default function MiniStudio() {
                   </div>
                 ))}
               </div>
+              {modules.length > 4 && (
+                <button
+                  onClick={() => setShowAllModules(!showAllModules)}
+                  className="w-full text-xs px-2 py-1 mb-4 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                >
+                  {showAllModules ? "Show Less" : `Load More (${modules.length - 4} more)`}
+                </button>
+              )}
+              
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2 mt-6">Preset Chains</div>
+              <div className="space-y-2 mb-6">
+                {PRESET_CHAINS.map((chain, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => applyPresetChain(chain)}
+                    className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-accent/10 hover:border-myai-accent/30 hover:shadow-lg hover:shadow-myai-accent/20 transition-all duration-200"
+                  >
+                    <div className="text-sm font-semibold text-white">{chain.name}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">{chain.description}</div>
+                  </button>
+                ))}
+              </div>
 
+              
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Level</div>
               <div className="h-2 bg-gradient-to-r from-gray-700 to-gray-600 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-gray-500 to-gray-300"
+                  className={`h-full ${qualityMetrics.isClipping ? 'bg-gradient-to-r from-red-600 to-red-400' : 'bg-gradient-to-r from-gray-500 to-gray-300'}`}
                   style={{ width: `${20 + meterLevel * 0.8}%` }}
                   transition={{ duration: 0.2 }}
                 />
               </div>
+              
+              {/* Quality Assurance Panel */}
+              <div className="mt-4 p-3 rounded-lg bg-black/30 border border-white/5">
+                <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Quality Check</div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Peak Level:</span>
+                    <span className={`font-semibold ${qualityMetrics.peakLevel > 0.95 ? 'text-red-400' : qualityMetrics.peakLevel > 0.8 ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {(qualityMetrics.peakLevel * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Status:</span>
+                    <span className={`font-semibold ${qualityMetrics.isClipping ? 'text-red-400' : 'text-green-400'}`}>
+                      {qualityMetrics.isClipping ? '⚠ Clipping' : '✓ Clean'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Target LUFS:</span>
+                    <span className="font-semibold text-blue-400">{qualityMetrics.lufs} dB</span>
+                  </div>
+                </div>
+                {qualityMetrics.isClipping && (
+                  <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
+                    <p className="text-[10px] text-red-300">⚠ Reduce gain to prevent clipping</p>
+                  </div>
+                )}
+              </div>
 
-              <div className="mt-6 flex items-center gap-3">
-                <label className="px-6 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer">
-                  Upload Dry
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUpload(f);
-                    }}
-                  />
-                </label>
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 px-4 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer text-center">
+                    Upload Dry
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUpload(f);
+                      }}
+                    />
+                  </label>
+                  <button
+                    onClick={handleRecord}
+                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                      isRecording ? "bg-red-500 text-white" : "bg-white/10 border border-white/10 hover:bg-white/20"
+                    }`}
+                    title={isRecording ? "Stop and Download" : "Start Recording"}
+                  >
+                    {isRecording ? "Stop" : "Record"}
+                  </button>
+                </div>
+                
                 <button
-                  onClick={handleRecord}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                    isRecording ? "bg-red-500 text-white" : "bg-white/10 border border-white/10 hover:bg-white/20"
-                  }`}
-                  title={isRecording ? "Stop and Download" : "Start Recording"}
+                  onClick={() => handleTranscribe(false)}
+                  disabled={transcribing}
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isRecording ? "Stop & Download" : "Record Mix"}
+                  {transcribing ? "Transcribing..." : "🎤 Get Lyrics (50 credits)"}
+                </button>
+                
+                <button
+                  onClick={() => handleTranscribe(true)}
+                  disabled={transcribing}
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {transcribing ? "Analyzing..." : "🎯 Full Analysis (150 credits)"}
                 </button>
               </div>
             </div>
@@ -492,6 +711,144 @@ export default function MiniStudio() {
           </div>
         </motion.div>
       </div>
+      
+      {/* Transcription Results Modal */}
+      {showTranscription && transcriptionData && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowTranscription(false)} />
+          <div className="relative z-[81] w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-myai-bg-panel/95 border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-2xl font-bold gradient-text">Lyrics & Analysis</h3>
+              <button
+                onClick={() => setShowTranscription(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Lyrics */}
+            <div className="mb-6 p-4 rounded-lg bg-black/30 border border-white/10">
+              <div className="text-sm uppercase tracking-wider text-gray-400 mb-2 flex items-center justify-between">
+                <span>Transcribed Lyrics</span>
+                <span className="text-xs">
+                  Confidence: <span className="text-green-400 font-semibold">{(transcriptionData.transcription.confidence * 100).toFixed(0)}%</span>
+                  {transcriptionData.transcription.doubleChecked && <span className="ml-2 text-blue-400">✓ Double-checked</span>}
+                </span>
+              </div>
+              <pre className="text-sm text-white whitespace-pre-wrap font-sans">{transcriptionData.transcription.lyrics}</pre>
+            </div>
+            
+            {/* Analysis */}
+            {transcriptionData.analysis && (
+              <div className="space-y-4">
+                {/* Overall Score */}
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm uppercase tracking-wider text-gray-400">Overall Score</span>
+                    <span className={`text-3xl font-bold ${
+                      transcriptionData.analysis.overallScore >= 90 ? 'text-green-400' :
+                      transcriptionData.analysis.overallScore >= 80 ? 'text-blue-400' :
+                      transcriptionData.analysis.overallScore >= 70 ? 'text-yellow-400' :
+                      'text-orange-400'
+                    }`}>
+                      {transcriptionData.analysis.overallScore}/100
+                    </span>
+                  </div>
+                  {transcriptionData.analysis.isFeatured && (
+                    <div className="mt-2 p-2 rounded bg-yellow-500/20 border border-yellow-500/40">
+                      <p className="text-sm text-yellow-300">🌟 <strong>Featured Potential!</strong> This track shows exceptional quality and hit potential.</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Verse Scores */}
+                <div>
+                  <h4 className="text-lg font-bold mb-3">Verse Analysis</h4>
+                  <div className="space-y-3">
+                    {transcriptionData.analysis.verseScores.map((verse: any, idx: number) => (
+                      <div key={idx} className="p-3 rounded-lg bg-black/30 border border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold">Verse {verse.verseNumber}</span>
+                          <span className={`font-bold ${verse.score >= 85 ? 'text-green-400' : verse.score >= 70 ? 'text-blue-400' : 'text-yellow-400'}`}>
+                            {verse.score}/100
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-2">{verse.feedback}</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <div className="text-green-400 mb-1">✓ Strengths:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-gray-400">
+                              {verse.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="text-orange-400 mb-1">⚡ Improvements:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-gray-400">
+                              {verse.improvements.map((imp: string, i: number) => <li key={i}>{imp}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Chorus Scores */}
+                <div>
+                  <h4 className="text-lg font-bold mb-3">Chorus Analysis</h4>
+                  <div className="space-y-3">
+                    {transcriptionData.analysis.chorusScores.map((chorus: any, idx: number) => (
+                      <div key={idx} className="p-3 rounded-lg bg-black/30 border border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold">Chorus {chorus.chorusNumber}</span>
+                          <span className={`font-bold ${chorus.score >= 90 ? 'text-green-400' : chorus.score >= 80 ? 'text-blue-400' : 'text-yellow-400'}`}>
+                            {chorus.score}/100
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-2">{chorus.feedback}</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <div className="text-green-400 mb-1">✓ Strengths:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-gray-400">
+                              {chorus.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="text-orange-400 mb-1">⚡ Improvements:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-gray-400">
+                              {chorus.improvements.map((imp: string, i: number) => <li key={i}>{imp}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Expert Advice */}
+                <div className="p-4 rounded-lg bg-gradient-to-br from-orange-900/30 to-pink-900/30 border border-orange-500/20">
+                  <h4 className="text-lg font-bold mb-2 flex items-center gap-2">
+                    <span>🎤</span>
+                    <span>Veteran OG Industry Advisor</span>
+                  </h4>
+                  <div className="text-sm text-gray-200 whitespace-pre-line leading-relaxed">
+                    {transcriptionData.analysis.expertAdvice}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-6 p-3 rounded-lg bg-blue-900/20 border border-blue-500/20">
+              <p className="text-xs text-blue-300">
+                💡 <strong>Note:</strong> Cost: {transcriptionData.pricing.total} credits. 
+                Analysis powered by {transcriptionData.analysis ? 'AI Industry Expert' : 'Basic Transcription'}.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {showDiscount && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDiscount(false)} />
