@@ -8,6 +8,13 @@ MyAiPlug is an AI-powered audio/video processing platform with real QC, gamifica
 
 ## 🚀 Features
 
+### Premium Audio Effects Demo
+- **One-Click Effects**: 12 professional-grade audio effects powered by Web Audio API
+- **Real-Time Processing**: Live audio visualization with waveform display
+- **Token-Based**: Each effect costs 5 tokens to use
+- **Categories**: Space (reverb, delay), Modulation (chorus, flanger, phaser, tremolo), Dynamics (compressor), Distortion (tube drive, bit crusher), Filter (auto filter), Creative (vocoder, ring modulator)
+- **Anti-Abuse**: Rate limiting and authentication requirements
+
 ### Core Processing
 - **AI-Powered Pipeline**: Automated audio/video processing with real-time quality checks
 - **Multiple Workflows**: Basic Chain, Podcast Polish, Reels Pack, Stem Split, and more
