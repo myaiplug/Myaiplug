@@ -6,6 +6,7 @@ import { getAudioEngine } from "@/lib/audioEngine";
 import { getAllModules } from "@/lib/audioModules";
 import type { AudioModule } from "@/lib/audioEngine";
 import Knob from "@/components/Knob";
+import FixedAudioPlayer from "@/components/FixedAudioPlayer";
 
 export default function MiniStudio() {
   const [modules, setModules] = useState<AudioModule[]>([]);
@@ -41,6 +42,9 @@ export default function MiniStudio() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewDuration, setPreviewDuration] = useState<number>(10); // Preview duration in seconds
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track preview timeout
+  const [currentPresetName, setCurrentPresetName] = useState<string>(""); // Track current preset for display
+  const [playerFileName, setPlayerFileName] = useState<string>(""); // For fixed player
+  const [playerCurrentEffect, setPlayerCurrentEffect] = useState<string>(""); // Current effect for player
   
   // Preset Chains - combinations of effects for different purposes
   interface PresetChain {
@@ -218,12 +222,19 @@ export default function MiniStudio() {
     if (!mod) return;
     setKnobValues(values);
     values.forEach((v, idx) => mod.params[idx]?.oninput(v));
+    
+    // Update current preset name for display
     if (markUsePresetName) {
+      setCurrentPresetName(markUsePresetName);
+      setPlayerCurrentEffect(`${mod.name}: ${markUsePresetName}`);
       setUserPresets(prev => {
         const next = prev.map(p => p.name === markUsePresetName ? { ...p, uses: (p.uses || 0) + 1 } : p);
         try { localStorage.setItem(`myaiplug.presets.${mod.name}`, JSON.stringify(next)); } catch {}
         return next;
       });
+    } else {
+      setCurrentPresetName("Custom");
+      setPlayerCurrentEffect(`${mod.name}: Custom`);
     }
   };
 
@@ -431,10 +442,12 @@ export default function MiniStudio() {
     try {
       setUploadProgress("Loading audio...");
       setUploadedFile(file);
+      setPlayerFileName(file.name); // Set for fixed player
       
       // Load file into audio engine for preview
       await engineRef.current.loadFromFile(file);
       await engineRef.current.startPlayers();
+      setIsPlaying(true); // Update playing state
       
       // Get audio duration from the loaded buffer
       const buffer = engineRef.current.getContext().createBufferSource().buffer;
@@ -447,9 +460,12 @@ export default function MiniStudio() {
       
       // Auto-switch to FX mode to hear the effects
       handlePlayState("fx");
+      const mod = modules[currentModule];
+      setPlayerCurrentEffect(mod ? `${mod.name}${currentPresetName ? ': ' + currentPresetName : ''}` : 'Processing');
     } catch (error) {
       console.error("Upload error:", error);
       setUploadProgress("");
+      setPlayerFileName("");
       showToast("Failed to load audio file");
     }
   };
@@ -481,6 +497,24 @@ export default function MiniStudio() {
         }
         previewTimeoutRef.current = null;
       }, previewDuration * 1000);
+    }
+  };
+
+  const handleStop = () => {
+    if (!engineRef.current) return;
+    
+    // Clear timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    
+    // Stop and reset audio
+    try {
+      engineRef.current.getContext().suspend();
+      setIsPlaying(false);
+    } catch (error) {
+      console.error("Stop error:", error);
     }
   };
 
@@ -880,56 +914,71 @@ export default function MiniStudio() {
             {/* Center - Controls */}
             <div className="bg-black/35 border border-white/5 rounded-xl p-6 flex flex-col items-center justify-center gap-6">
               <div className="text-center">
-                <div className="text-sm uppercase tracking-wider text-gray-400 mb-1">Module</div>
+                <div className="text-sm uppercase tracking-wider text-gray-400 mb-1">Current Module</div>
                 <h3 className="text-2xl font-bold">{currentMod?.name || "Loading..."}</h3>
+                {currentPresetName && (
+                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-myai-primary/20 border border-myai-primary/30">
+                    <span className="w-2 h-2 rounded-full bg-myai-primary animate-pulse"></span>
+                    <span className="text-xs font-medium text-myai-accent">{currentPresetName}</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">Adjust knobs to customize your sound</p>
               </div>
 
               <div className="flex gap-6 justify-center min-h-[180px] items-center">
                 {currentMod?.params.map((param, idx) => {
                   const value = knobValues[idx] ?? param.value;
                   return (
-                    <Knob
-                      key={idx}
-                      value={value}
-                      min={param.min}
-                      max={param.max}
-                      step={(param.max - param.min) / 100}
-                      onChange={(v) => handleKnobChange(idx, v)}
-                      label={param.label}
-                      size={96}
-                      fillColor="#7C4DFF"
-                      trackColor="#333333"
-                      faceColor="#111122"
-                      pointerColor="#FFFFFF"
-                      showTicks={true}
-                    />
+                    <div key={idx} className="flex flex-col items-center">
+                      <Knob
+                        value={value}
+                        min={param.min}
+                        max={param.max}
+                        step={(param.max - param.min) / 100}
+                        onChange={(v) => handleKnobChange(idx, v)}
+                        label={param.label}
+                        size={96}
+                        fillColor="#7C4DFF"
+                        trackColor="#333333"
+                        faceColor="#111122"
+                        pointerColor="#FFFFFF"
+                        showTicks={true}
+                      />
+                      <div className="mt-2 text-center">
+                        <div className="text-xs font-medium text-white">{param.label}</div>
+                        <div className="text-xs text-myai-accent font-mono">{value.toFixed(1)}</div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handlePlayState("dry")}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                    playState === "dry" ? "bg-myai-primary text-white" : "bg-white/5 border border-white/10 hover:bg-white/10"
-                  }`}
-                >
+              <div className="w-full">
+                <div className="text-xs text-gray-400 text-center mb-3">Preview Modes</div>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => handlePlayState("dry")}
+                    className={`flex-1 max-w-[120px] px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                      playState === "dry" ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30" : "bg-white/5 border border-white/10 hover:bg-white/10"
+                    }`}
+                  >
                   Dry
                 </button>
                 <button
                   onClick={handleAB}
-                  className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-myai-accent-warm to-myai-accent-warm-2 text-black hover:scale-105 transition-transform duration-200"
+                  className="flex-1 max-w-[120px] px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-myai-accent-warm to-myai-accent-warm-2 text-black hover:scale-105 transition-transform duration-200"
                 >
                   A/B
                 </button>
                 <button
                   onClick={() => handlePlayState("fx")}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                    playState === "fx" ? "bg-myai-primary text-white" : "bg-white/5 border border-white/10 hover:bg-white/10"
+                  className={`flex-1 max-w-[120px] px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                    playState === "fx" ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30" : "bg-white/5 border border-white/10 hover:bg-white/10"
                   }`}
                 >
                   Processed
                 </button>
+              </div>
               </div>
             </div>
 
@@ -1323,6 +1372,15 @@ export default function MiniStudio() {
           </div>
         </div>
       )}
+      
+      {/* Fixed Audio Player at Bottom */}
+      <FixedAudioPlayer
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        onStop={handleStop}
+        fileName={playerFileName}
+        currentEffect={playerCurrentEffect}
+      />
     </section>
   );
 }
