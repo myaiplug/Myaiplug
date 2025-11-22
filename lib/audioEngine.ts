@@ -41,11 +41,12 @@ export class AudioEngine {
   this.gainFX = this.ctx.createGain();
   this.mixBus = this.ctx.createGain();
   this.limiter = this.ctx.createDynamicsCompressor();
-  // Configure as Spotify-standard LUFS limiter (-14 LUFS target)
-  this.limiter.threshold.value = -6.0; // dB - More aggressive threshold
+  // Configure limiter for streaming-platform loudness (targeting -14 LUFS range)
+  // Note: This is compression-based loudness control, not true LUFS metering
+  this.limiter.threshold.value = -6.0; // dB - Catches peaks above this level
   this.limiter.knee.value = 2.0; // Slight knee for smoother compression
-  this.limiter.ratio.value = 12.0; // Strong ratio for limiting
-  this.limiter.attack.value = 0.001; // Fast attack to catch peaks
+  this.limiter.ratio.value = 12.0; // Strong ratio for effective limiting
+  this.limiter.attack.value = 0.001; // Fast attack to catch transient peaks
   this.limiter.release.value = 0.05; // Quick release for transparency
     this.fxInput = this.ctx.createGain();
     this.analyser = this.ctx.createAnalyser();
@@ -54,8 +55,9 @@ export class AudioEngine {
 
     this.gainDry.gain.value = 1.0;
     this.gainFX.gain.value = 0.0;
-    // Increase mix bus gain for makeup gain to compensate loudness
-    this.mixBus.gain.value = 1.8; // Makeup gain for proper loudness
+    // Apply makeup gain to compensate for compression (1.8x ≈ +5 dB boost)
+    // This helps match processed output to typical streaming platform levels
+    this.mixBus.gain.value = 1.8;
 
     // Mix bus: dry + fx -> mix -> limiter -> analyser -> destination + recorder
     this.recorderDest = this.ctx.createMediaStreamDestination();

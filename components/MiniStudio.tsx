@@ -226,15 +226,21 @@ export default function MiniStudio() {
     // Update current preset name for display
     if (markUsePresetName) {
       setCurrentPresetName(markUsePresetName);
-      setPlayerCurrentEffect(`${mod.name}: ${markUsePresetName}`);
+      const mod = modules[currentModule];
+      if (mod) {
+        setPlayerCurrentEffect(`${mod.name}: ${markUsePresetName}`);
+      }
       setUserPresets(prev => {
         const next = prev.map(p => p.name === markUsePresetName ? { ...p, uses: (p.uses || 0) + 1 } : p);
-        try { localStorage.setItem(`myaiplug.presets.${mod.name}`, JSON.stringify(next)); } catch {}
+        try { localStorage.setItem(`myaiplug.presets.${mod?.name || 'unknown'}`, JSON.stringify(next)); } catch {}
         return next;
       });
     } else {
       setCurrentPresetName("Custom");
-      setPlayerCurrentEffect(`${mod.name}: Custom`);
+      const mod = modules[currentModule];
+      if (mod) {
+        setPlayerCurrentEffect(`${mod.name}: Custom`);
+      }
     }
   };
 
@@ -1380,6 +1386,7 @@ export default function MiniStudio() {
         onStop={handleStop}
         fileName={playerFileName}
         currentEffect={playerCurrentEffect}
+        duration={audioDuration}
       />
     </section>
   );

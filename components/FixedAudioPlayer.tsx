@@ -9,6 +9,7 @@ interface FixedAudioPlayerProps {
   onStop: () => void;
   fileName?: string;
   currentEffect?: string;
+  duration?: number; // Audio duration in seconds for progress bar
 }
 
 export default function FixedAudioPlayer({
@@ -16,7 +17,8 @@ export default function FixedAudioPlayer({
   onPlayPause,
   onStop,
   fileName,
-  currentEffect
+  currentEffect,
+  duration = 30 // Default to 30 seconds if not provided
 }: FixedAudioPlayerProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -107,7 +109,7 @@ export default function FixedAudioPlayer({
               className="h-full bg-gradient-to-r from-myai-primary to-myai-accent"
               initial={{ width: "0%" }}
               animate={{ width: isPlaying ? "100%" : "0%" }}
-              transition={{ duration: 30, ease: "linear" }}
+              transition={{ duration: duration, ease: "linear" }}
             />
           </div>
         </div>
