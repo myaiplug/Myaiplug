@@ -40,6 +40,7 @@ export default function MiniStudio() {
   const [viewMode, setViewMode] = useState<"simple" | "advanced">("simple"); // Toggle between views
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewDuration, setPreviewDuration] = useState<number>(10); // Preview duration in seconds
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track preview timeout
   
   // Preset Chains - combinations of effects for different purposes
   interface PresetChain {
@@ -158,6 +159,11 @@ export default function MiniStudio() {
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      // Cleanup preview timeout on unmount
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -451,6 +457,12 @@ export default function MiniStudio() {
   const handlePlayPause = () => {
     if (!engineRef.current || !uploadedFile) return;
     
+    // Clear any existing timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    
     if (isPlaying) {
       // Pause playback
       engineRef.current.getContext().suspend();
@@ -462,11 +474,12 @@ export default function MiniStudio() {
       setIsPlaying(true);
       
       // Auto-pause after preview duration
-      setTimeout(() => {
+      previewTimeoutRef.current = setTimeout(() => {
         if (engineRef.current) {
           engineRef.current.getContext().suspend();
           setIsPlaying(false);
         }
+        previewTimeoutRef.current = null;
       }, previewDuration * 1000);
     }
   };
@@ -646,6 +659,11 @@ export default function MiniStudio() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
+                            // Clear preview timeout when changing file
+                            if (previewTimeoutRef.current) {
+                              clearTimeout(previewTimeoutRef.current);
+                              previewTimeoutRef.current = null;
+                            }
                             setUploadedFile(null);
                             setIsPlaying(false);
                           }}
@@ -939,8 +957,14 @@ export default function MiniStudio() {
                     </div>
                     <button
                       onClick={() => {
+                        // Clear preview timeout when clearing file
+                        if (previewTimeoutRef.current) {
+                          clearTimeout(previewTimeoutRef.current);
+                          previewTimeoutRef.current = null;
+                        }
                         setUploadedFile(null);
                         setUploadProgress("");
+                        setIsPlaying(false);
                       }}
                       className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
                     >
