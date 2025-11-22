@@ -6,6 +6,7 @@ import { getAudioEngine } from "@/lib/audioEngine";
 import { getAllModules } from "@/lib/audioModules";
 import type { AudioModule } from "@/lib/audioEngine";
 import Knob from "@/components/Knob";
+import FixedAudioPlayer from "@/components/FixedAudioPlayer";
 
 export default function MiniStudio() {
   const [modules, setModules] = useState<AudioModule[]>([]);
@@ -33,6 +34,17 @@ export default function MiniStudio() {
   const [showTranscription, setShowTranscription] = useState(false);
   const [transcriptionData, setTranscriptionData] = useState<any>(null);
   const [transcribing, setTranscribing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
+  const [audioDuration, setAudioDuration] = useState<number>(10); // in seconds
+  const [viewMode, setViewMode] = useState<"simple" | "advanced">("simple"); // Toggle between views
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [previewDuration, setPreviewDuration] = useState<number>(10); // Preview duration in seconds
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track preview timeout
+  const [currentPresetName, setCurrentPresetName] = useState<string>(""); // Track current preset for display
+  const [playerFileName, setPlayerFileName] = useState<string>(""); // For fixed player
+  const [playerCurrentEffect, setPlayerCurrentEffect] = useState<string>(""); // Current effect for player
   
   // Preset Chains - combinations of effects for different purposes
   interface PresetChain {
@@ -151,6 +163,11 @@ export default function MiniStudio() {
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      // Cleanup preview timeout on unmount
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -205,12 +222,25 @@ export default function MiniStudio() {
     if (!mod) return;
     setKnobValues(values);
     values.forEach((v, idx) => mod.params[idx]?.oninput(v));
+    
+    // Update current preset name for display
     if (markUsePresetName) {
+      setCurrentPresetName(markUsePresetName);
+      const mod = modules[currentModule];
+      if (mod) {
+        setPlayerCurrentEffect(`${mod.name}: ${markUsePresetName}`);
+      }
       setUserPresets(prev => {
         const next = prev.map(p => p.name === markUsePresetName ? { ...p, uses: (p.uses || 0) + 1 } : p);
-        try { localStorage.setItem(`myaiplug.presets.${mod.name}`, JSON.stringify(next)); } catch {}
+        try { localStorage.setItem(`myaiplug.presets.${mod?.name || 'unknown'}`, JSON.stringify(next)); } catch {}
         return next;
       });
+    } else {
+      setCurrentPresetName("Custom");
+      const mod = modules[currentModule];
+      if (mod) {
+        setPlayerCurrentEffect(`${mod.name}: Custom`);
+      }
     }
   };
 
@@ -297,7 +327,7 @@ export default function MiniStudio() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "nodaw_processed.webm";
+        a.download = "myaiplug_processed.webm";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -308,10 +338,190 @@ export default function MiniStudio() {
     }
   };
 
+  const handleProcessAndSave = async () => {
+    if (!uploadedFile || !engineRef.current) {
+      showToast("Please upload an audio file first");
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadProgress("Processing with effects...");
+
+    try {
+      // Record the processed audio using the actual audio duration
+      const recordDuration = Math.min(audioDuration, 30); // Cap at 30 seconds for demo
+      const blob = await engineRef.current.record(recordDuration);
+      
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('audio', uploadedFile);
+      formData.append('processedAudio', blob, 'processed.webm');
+      
+      // Get current module and preset info
+      const currentModuleName = modules[currentModule]?.name || 'Custom';
+      const effectsApplied = modules
+        .filter((_, idx) => activeModules[idx])
+        .map(m => m.name)
+        .join(', ');
+      
+      formData.append('moduleName', currentModuleName);
+      formData.append('effectsApplied', effectsApplied);
+      formData.append('durationSeconds', audioDuration.toString());
+
+      // Send to upload API
+      const uploadResponse = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      
+      // Try to create a job if user is authenticated
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('sessionToken') : null;
+        if (token) {
+          setUploadProgress("Creating job...");
+          
+          const jobResponse = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              type: 'audio_processing',
+              inputDurationSec: audioDuration,
+              inputUrl: uploadedFile.name,
+              metadata: {
+                effectsApplied,
+                moduleName: currentModuleName,
+                fileName: uploadedFile.name,
+                fileSize: uploadedFile.size,
+              },
+            }),
+          });
+
+          if (jobResponse.ok) {
+            const jobResult = await jobResponse.json();
+            showToast("✓ Audio processed & saved to your jobs!");
+          } else {
+            showToast("✓ Audio processed (job not saved - please sign in)");
+          }
+        } else {
+          showToast("✓ Audio processed (sign in to save to jobs)");
+        }
+      } catch (jobError) {
+        console.error("Job creation error:", jobError);
+        showToast("✓ Audio processed (sign in to save to jobs)");
+      }
+      
+      setUploadProgress("");
+      setIsProcessing(false);
+      
+      // Download the processed file
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `myaiplug_${uploadedFile.name.replace(/\.[^/.]+$/, '')}_processed.webm`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      // Show discount modal after successful processing
+      setTimeout(() => setShowDiscount(true), 500);
+    } catch (error) {
+      console.error("Process error:", error);
+      setUploadProgress("");
+      setIsProcessing(false);
+      showToast("Failed to process audio");
+    }
+  };
+
   const handleUpload = async (file: File) => {
     if (!engineRef.current) return;
-    await engineRef.current.loadFromFile(file);
-    await engineRef.current.startPlayers();
+    
+    try {
+      setUploadProgress("Loading audio...");
+      setUploadedFile(file);
+      setPlayerFileName(file.name); // Set for fixed player
+      
+      // Load file into audio engine for preview
+      await engineRef.current.loadFromFile(file);
+      await engineRef.current.startPlayers();
+      setIsPlaying(true); // Update playing state
+      
+      // Get audio duration from the loaded buffer
+      const buffer = engineRef.current.getContext().createBufferSource().buffer;
+      if (buffer) {
+        setAudioDuration(Math.ceil(buffer.duration));
+      }
+      
+      setUploadProgress(`Loaded: ${file.name}`);
+      showToast(`Audio loaded: ${file.name.substring(0, 20)}${file.name.length > 20 ? '...' : ''}`);
+      
+      // Auto-switch to FX mode to hear the effects
+      handlePlayState("fx");
+      const mod = modules[currentModule];
+      setPlayerCurrentEffect(mod ? `${mod.name}${currentPresetName ? ': ' + currentPresetName : ''}` : 'Processing');
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadProgress("");
+      setPlayerFileName("");
+      showToast("Failed to load audio file");
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (!engineRef.current || !uploadedFile) return;
+    
+    // Clear any existing timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    
+    if (isPlaying) {
+      // Pause playback
+      engineRef.current.getContext().suspend();
+      setIsPlaying(false);
+    } else {
+      // Resume/start playback
+      engineRef.current.getContext().resume();
+      engineRef.current.startPlayers();
+      setIsPlaying(true);
+      
+      // Auto-pause after preview duration
+      previewTimeoutRef.current = setTimeout(() => {
+        if (engineRef.current) {
+          engineRef.current.getContext().suspend();
+          setIsPlaying(false);
+        }
+        previewTimeoutRef.current = null;
+      }, previewDuration * 1000);
+    }
+  };
+
+  const handleStop = () => {
+    if (!engineRef.current) return;
+    
+    // Clear timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    
+    // Stop and reset audio
+    try {
+      engineRef.current.getContext().suspend();
+      setIsPlaying(false);
+    } catch (error) {
+      console.error("Stop error:", error);
+    }
   };
 
   const handleTranscribe = async (enableAnalysis: boolean = false) => {
@@ -396,14 +606,234 @@ export default function MiniStudio() {
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
             Interactive <span className="gradient-text">Demo</span>
           </h2>
-          <p className="text-gray-400 text-lg">Try our audio modules in real-time. No upload required.</p>
+          <p className="text-gray-400 text-lg">Try our audio modules in real-time. Upload your audio or use the demo loop.</p>
+          
+          {/* View Mode Toggle */}
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              onClick={() => setViewMode("simple")}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                viewMode === "simple"
+                  ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30"
+                  : "bg-white/5 border border-white/10 hover:bg-white/10"
+              }`}
+            >
+              🎵 Simple Mode
+            </button>
+            <button
+              onClick={() => setViewMode("advanced")}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                viewMode === "advanced"
+                  ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30"
+                  : "bg-white/5 border border-white/10 hover:bg-white/10"
+              }`}
+            >
+              ⚙️ Advanced Studio
+            </button>
+          </div>
         </motion.div>
 
+        {/* Simple Mode View */}
+        {viewMode === "simple" && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="bg-myai-bg-panel/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl"
+          >
+            <div className="max-w-3xl mx-auto">
+              {/* Simple Workflow with Icons */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* Step 1: Upload */}
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-myai-primary to-myai-accent flex items-center justify-center">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <h3 className="font-bold mb-2">1. Upload</h3>
+                  <p className="text-sm text-gray-400">Drop your audio file</p>
+                </div>
+
+                {/* Step 2: Preview */}
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-myai-accent to-myai-accent-warm flex items-center justify-center">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-bold mb-2">2. Preview</h3>
+                  <p className="text-sm text-gray-400">Listen to 10s snippet</p>
+                </div>
+
+                {/* Step 3: Process */}
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="font-bold mb-2">3. Process</h3>
+                  <p className="text-sm text-gray-400">Apply effects & download</p>
+                </div>
+              </div>
+
+              {/* Upload Area */}
+              <div className="mb-6">
+                <label className="block text-center">
+                  <div className={`border-2 border-dashed rounded-xl p-12 transition-all duration-200 cursor-pointer ${
+                    uploadedFile 
+                      ? "border-green-500/50 bg-green-500/10" 
+                      : "border-white/20 bg-white/5 hover:border-myai-primary/50 hover:bg-myai-primary/5"
+                  }`}>
+                    {uploadedFile ? (
+                      <div className="space-y-3">
+                        <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-semibold">{uploadedFile.name}</p>
+                        <p className="text-sm text-gray-400">Duration: {audioDuration}s</p>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            // Clear preview timeout when changing file
+                            if (previewTimeoutRef.current) {
+                              clearTimeout(previewTimeoutRef.current);
+                              previewTimeoutRef.current = null;
+                            }
+                            setUploadedFile(null);
+                            setIsPlaying(false);
+                          }}
+                          className="text-xs px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                        >
+                          Change File
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="w-16 h-16 mx-auto rounded-full bg-myai-primary/20 flex items-center justify-center">
+                          <svg className="w-8 h-8 text-myai-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-semibold">Drop your audio file here</p>
+                        <p className="text-sm text-gray-400">or click to browse</p>
+                        <p className="text-xs text-gray-500">Supports MP3, WAV, FLAC, M4A, OGG, WEBM (max 50MB)</p>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUpload(f);
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Preview Controls */}
+              {uploadedFile && (
+                <div className="mb-6 p-6 rounded-xl bg-black/30 border border-white/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-semibold mb-1">Preview Your Audio</h4>
+                      <p className="text-sm text-gray-400">Listen to a {previewDuration}s snippet with effects</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400">Preview:</label>
+                      <select
+                        value={previewDuration}
+                        onChange={(e) => setPreviewDuration(Number(e.target.value))}
+                        className="text-sm px-2 py-1 rounded bg-white/5 border border-white/10"
+                      >
+                        <option value={5}>5s</option>
+                        <option value={10}>10s</option>
+                        <option value={15}>15s</option>
+                        <option value={30}>30s</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Play/Pause Button */}
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={handlePlayPause}
+                      className={`px-8 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+                        isPlaying
+                          ? "bg-orange-600 hover:bg-orange-700"
+                          : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      {isPlaying ? (
+                        <>
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                          </svg>
+                          Pause Preview
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                          Play Preview
+                        </>
+                      )}
+                    </button>
+
+                    {/* A/B Toggle */}
+                    <button
+                      onClick={handleAB}
+                      className="px-6 py-3 rounded-lg font-bold bg-gradient-to-r from-myai-accent-warm to-myai-accent-warm-2 text-black hover:scale-105 transition-transform duration-200"
+                    >
+                      A/B Compare
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Process Button */}
+              {uploadedFile && (
+                <button
+                  onClick={handleProcessAndSave}
+                  disabled={isProcessing}
+                  className="w-full px-6 py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    "✨ Apply Effects & Download"
+                  )}
+                </button>
+              )}
+
+              {uploadProgress && (
+                <div className="mt-4 p-3 rounded-lg bg-blue-900/20 border border-blue-500/30 text-center">
+                  <span className="text-sm text-blue-300">{uploadProgress}</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Advanced Mode View */}
+        {viewMode === "advanced" && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
           className="bg-myai-bg-panel/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl"
         >
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_260px] gap-6">
@@ -490,63 +920,114 @@ export default function MiniStudio() {
             {/* Center - Controls */}
             <div className="bg-black/35 border border-white/5 rounded-xl p-6 flex flex-col items-center justify-center gap-6">
               <div className="text-center">
-                <div className="text-sm uppercase tracking-wider text-gray-400 mb-1">Module</div>
+                <div className="text-sm uppercase tracking-wider text-gray-400 mb-1">Current Module</div>
                 <h3 className="text-2xl font-bold">{currentMod?.name || "Loading..."}</h3>
+                {currentPresetName && (
+                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-myai-primary/20 border border-myai-primary/30">
+                    <span className="w-2 h-2 rounded-full bg-myai-primary animate-pulse"></span>
+                    <span className="text-xs font-medium text-myai-accent">{currentPresetName}</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">Adjust knobs to customize your sound</p>
               </div>
 
               <div className="flex gap-6 justify-center min-h-[180px] items-center">
                 {currentMod?.params.map((param, idx) => {
                   const value = knobValues[idx] ?? param.value;
                   return (
-                    <Knob
-                      key={idx}
-                      value={value}
-                      min={param.min}
-                      max={param.max}
-                      step={(param.max - param.min) / 100}
-                      onChange={(v) => handleKnobChange(idx, v)}
-                      label={param.label}
-                      size={96}
-                      fillColor="#7C4DFF"
-                      trackColor="#333333"
-                      faceColor="#111122"
-                      pointerColor="#FFFFFF"
-                      showTicks={true}
-                    />
+                    <div key={idx} className="flex flex-col items-center">
+                      <Knob
+                        value={value}
+                        min={param.min}
+                        max={param.max}
+                        step={(param.max - param.min) / 100}
+                        onChange={(v) => handleKnobChange(idx, v)}
+                        label={param.label}
+                        size={96}
+                        fillColor="#7C4DFF"
+                        trackColor="#333333"
+                        faceColor="#111122"
+                        pointerColor="#FFFFFF"
+                        showTicks={true}
+                      />
+                      <div className="mt-2 text-center">
+                        <div className="text-xs font-medium text-white">{param.label}</div>
+                        <div className="text-xs text-myai-accent font-mono">{value.toFixed(1)}</div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handlePlayState("dry")}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                    playState === "dry" ? "bg-myai-primary text-white" : "bg-white/5 border border-white/10 hover:bg-white/10"
-                  }`}
-                >
+              <div className="w-full">
+                <div className="text-xs text-gray-400 text-center mb-3">Preview Modes</div>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => handlePlayState("dry")}
+                    className={`flex-1 max-w-[120px] px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                      playState === "dry" ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30" : "bg-white/5 border border-white/10 hover:bg-white/10"
+                    }`}
+                  >
                   Dry
                 </button>
                 <button
                   onClick={handleAB}
-                  className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-myai-accent-warm to-myai-accent-warm-2 text-black hover:scale-105 transition-transform duration-200"
+                  className="flex-1 max-w-[120px] px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-myai-accent-warm to-myai-accent-warm-2 text-black hover:scale-105 transition-transform duration-200"
                 >
                   A/B
                 </button>
                 <button
                   onClick={() => handlePlayState("fx")}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-                    playState === "fx" ? "bg-myai-primary text-white" : "bg-white/5 border border-white/10 hover:bg-white/10"
+                  className={`flex-1 max-w-[120px] px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                    playState === "fx" ? "bg-myai-primary text-white shadow-lg shadow-myai-primary/30" : "bg-white/5 border border-white/10 hover:bg-white/10"
                   }`}
                 >
                   Processed
                 </button>
               </div>
+              </div>
             </div>
 
             {/* Info, Meter, Toggles, Upload/Record */}
             <div className="bg-black/25 border border-white/5 rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-3">Info</div>
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Info</div>
               <p className="text-sm text-gray-300 mb-6">{currentMod?.info || "Lite Demo — Full version in Studio"}</p>
+              
+              {/* Upload Status */}
+              {uploadProgress && (
+                <div className="mb-4 p-3 rounded-lg bg-blue-900/20 border border-blue-500/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                    <span className="text-xs text-blue-300">{uploadProgress}</span>
+                  </div>
+                </div>
+              )}
+              
+              {uploadedFile && !isProcessing && (
+                <div className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-green-300">Ready to Process</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{uploadedFile.name}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Clear preview timeout when clearing file
+                        if (previewTimeoutRef.current) {
+                          clearTimeout(previewTimeoutRef.current);
+                          previewTimeoutRef.current = null;
+                        }
+                        setUploadedFile(null);
+                        setUploadProgress("");
+                        setIsPlaying(false);
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Active Modules</div>
               <div className="flex flex-wrap gap-2 mb-3">
@@ -630,8 +1111,8 @@ export default function MiniStudio() {
 
               <div className="mt-6 space-y-3">
                 <div className="flex items-center gap-3">
-                  <label className="flex-1 px-4 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer text-center">
-                    Upload Dry
+                  <label className="flex-1 px-4 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer text-center text-sm">
+                    📁 Upload Audio
                     <input
                       type="file"
                       accept="audio/*"
@@ -644,19 +1125,30 @@ export default function MiniStudio() {
                   </label>
                   <button
                     onClick={handleRecord}
-                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${
                       isRecording ? "bg-red-500 text-white" : "bg-white/10 border border-white/10 hover:bg-white/20"
                     }`}
                     title={isRecording ? "Stop and Download" : "Start Recording"}
                   >
-                    {isRecording ? "Stop" : "Record"}
+                    {isRecording ? "⏹ Stop" : "⏺ Record"}
                   </button>
                 </div>
+                
+                {/* Process & Save Button - Only show when file is uploaded */}
+                {uploadedFile && (
+                  <button
+                    onClick={handleProcessAndSave}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
+                  >
+                    {isProcessing ? "⚙️ Processing..." : "✨ Apply Effects & Save"}
+                  </button>
+                )}
                 
                 <button
                   onClick={() => handleTranscribe(false)}
                   disabled={transcribing}
-                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {transcribing ? "Transcribing..." : "🎤 Get Lyrics (50 credits)"}
                 </button>
@@ -664,7 +1156,7 @@ export default function MiniStudio() {
                 <button
                   onClick={() => handleTranscribe(true)}
                   disabled={transcribing}
-                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {transcribing ? "Analyzing..." : "🎯 Full Analysis (150 credits)"}
                 </button>
@@ -710,6 +1202,7 @@ export default function MiniStudio() {
             </a>
           </div>
         </motion.div>
+        )}
       </div>
       
       {/* Transcription Results Modal */}
@@ -885,6 +1378,16 @@ export default function MiniStudio() {
           </div>
         </div>
       )}
+      
+      {/* Fixed Audio Player at Bottom */}
+      <FixedAudioPlayer
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        onStop={handleStop}
+        fileName={playerFileName}
+        currentEffect={playerCurrentEffect}
+        duration={audioDuration}
+      />
     </section>
   );
 }

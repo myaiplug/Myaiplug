@@ -15,6 +15,10 @@ export const JOB_COSTS = {
     base: 35, // 20 + 15 for advanced
     perMinute: 20, // 5 + 15 for advanced
   },
+  audio_processing: {
+    base: 50,
+    perMinute: 0, // Flat rate for effects processing
+  },
   reels: {
     base: 60,
     perMinute: 20,
