@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('audio') as File;
+    const processedAudio = formData.get('processedAudio') as File | null;
+    const moduleName = formData.get('moduleName') as string || 'Custom';
+    const effectsApplied = formData.get('effectsApplied') as string || 'None';
 
     if (!file) {
       return NextResponse.json(
@@ -70,10 +73,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg'];
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|m4a|ogg)$/i)) {
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG)' },
+        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
         { status: 400 }
       );
     }
@@ -94,11 +97,25 @@ export async function POST(request: NextRequest) {
     const audioAnalysis = analyzeAudio(file.name, file.size);
     const generatedContent = generateSocialContent(audioAnalysis);
 
+    // Prepare response with job information
+    const jobData = {
+      jobId: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      fileName: file.name,
+      fileSize: file.size,
+      moduleName,
+      effectsApplied,
+      status: 'completed',
+      creditsCharged: 50, // Standard processing cost
+      timeSaved: 25, // Estimated minutes saved
+      processedFileUrl: processedAudio ? `processed_${file.name}` : null,
+    };
+
     return NextResponse.json({
       success: true,
       audioAnalysis,
       generatedContent,
-      message: 'Audio processed successfully',
+      jobData,
+      message: 'Audio processed successfully. Effects applied: ' + effectsApplied,
     });
 
   } catch (error) {

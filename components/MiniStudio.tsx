@@ -33,6 +33,9 @@ export default function MiniStudio() {
   const [showTranscription, setShowTranscription] = useState(false);
   const [transcriptionData, setTranscriptionData] = useState<any>(null);
   const [transcribing, setTranscribing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
   
   // Preset Chains - combinations of effects for different purposes
   interface PresetChain {
@@ -297,7 +300,7 @@ export default function MiniStudio() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "nodaw_processed.webm";
+        a.download = "myaiplug_processed.webm";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -308,10 +311,81 @@ export default function MiniStudio() {
     }
   };
 
+  const handleProcessAndSave = async () => {
+    if (!uploadedFile || !engineRef.current) {
+      showToast("Please upload an audio file first");
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadProgress("Processing with effects...");
+
+    try {
+      // Record the processed audio
+      const blob = await engineRef.current.record(10); // Record 10 seconds
+      
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('audio', uploadedFile);
+      formData.append('processedAudio', blob, 'processed.webm');
+      
+      // Get current module and preset info
+      const currentModuleName = modules[currentModule]?.name || 'Custom';
+      const effectsApplied = modules
+        .filter((_, idx) => activeModules[idx])
+        .map(m => m.name)
+        .join(', ');
+      
+      formData.append('moduleName', currentModuleName);
+      formData.append('effectsApplied', effectsApplied);
+
+      // Send to upload API
+      const response = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+      
+      setUploadProgress("");
+      setIsProcessing(false);
+      showToast("✓ Audio processed & saved!");
+      
+      // Show discount modal after successful processing
+      setTimeout(() => setShowDiscount(true), 500);
+    } catch (error) {
+      console.error("Process error:", error);
+      setUploadProgress("");
+      setIsProcessing(false);
+      showToast("Failed to process audio");
+    }
+  };
+
   const handleUpload = async (file: File) => {
     if (!engineRef.current) return;
-    await engineRef.current.loadFromFile(file);
-    await engineRef.current.startPlayers();
+    
+    try {
+      setUploadProgress("Loading audio...");
+      setUploadedFile(file);
+      
+      // Load file into audio engine for preview
+      await engineRef.current.loadFromFile(file);
+      await engineRef.current.startPlayers();
+      
+      setUploadProgress(`Loaded: ${file.name}`);
+      showToast(`Audio loaded: ${file.name.substring(0, 20)}${file.name.length > 20 ? '...' : ''}`);
+      
+      // Auto-switch to FX mode to hear the effects
+      handlePlayState("fx");
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadProgress("");
+      showToast("Failed to load audio file");
+    }
   };
 
   const handleTranscribe = async (enableAnalysis: boolean = false) => {
@@ -545,8 +619,38 @@ export default function MiniStudio() {
 
             {/* Info, Meter, Toggles, Upload/Record */}
             <div className="bg-black/25 border border-white/5 rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-3">Info</div>
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Info</div>
               <p className="text-sm text-gray-300 mb-6">{currentMod?.info || "Lite Demo — Full version in Studio"}</p>
+              
+              {/* Upload Status */}
+              {uploadProgress && (
+                <div className="mb-4 p-3 rounded-lg bg-blue-900/20 border border-blue-500/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
+                    <span className="text-xs text-blue-300">{uploadProgress}</span>
+                  </div>
+                </div>
+              )}
+              
+              {uploadedFile && !isProcessing && (
+                <div className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-green-300">Ready to Process</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{uploadedFile.name}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUploadedFile(null);
+                        setUploadProgress("");
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Active Modules</div>
               <div className="flex flex-wrap gap-2 mb-3">
@@ -630,8 +734,8 @@ export default function MiniStudio() {
 
               <div className="mt-6 space-y-3">
                 <div className="flex items-center gap-3">
-                  <label className="flex-1 px-4 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer text-center">
-                    Upload Dry
+                  <label className="flex-1 px-4 py-2 rounded-lg font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition-all duration-200 cursor-pointer text-center text-sm">
+                    📁 Upload Audio
                     <input
                       type="file"
                       accept="audio/*"
@@ -644,19 +748,30 @@ export default function MiniStudio() {
                   </label>
                   <button
                     onClick={handleRecord}
-                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${
                       isRecording ? "bg-red-500 text-white" : "bg-white/10 border border-white/10 hover:bg-white/20"
                     }`}
                     title={isRecording ? "Stop and Download" : "Start Recording"}
                   >
-                    {isRecording ? "Stop" : "Record"}
+                    {isRecording ? "⏹ Stop" : "⏺ Record"}
                   </button>
                 </div>
+                
+                {/* Process & Save Button - Only show when file is uploaded */}
+                {uploadedFile && (
+                  <button
+                    onClick={handleProcessAndSave}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
+                  >
+                    {isProcessing ? "⚙️ Processing..." : "✨ Apply Effects & Save"}
+                  </button>
+                )}
                 
                 <button
                   onClick={() => handleTranscribe(false)}
                   disabled={transcribing}
-                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {transcribing ? "Transcribing..." : "🎤 Get Lyrics (50 credits)"}
                 </button>
@@ -664,7 +779,7 @@ export default function MiniStudio() {
                 <button
                   onClick={() => handleTranscribe(true)}
                   disabled={transcribing}
-                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {transcribing ? "Analyzing..." : "🎯 Full Analysis (150 credits)"}
                 </button>
