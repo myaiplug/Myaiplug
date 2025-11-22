@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserBySession } from '@/lib/services/userService';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Get session token from Authorization header
