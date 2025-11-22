@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateJobCost } from '@/lib/constants/pricing';
+import { TIME_SAVED_BASELINES } from '@/lib/constants/gamification';
 
 // Simulated audio analysis function
 // In production, this would integrate with actual audio processing libraries
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
     const processedAudio = formData.get('processedAudio') as File | null;
     const moduleName = formData.get('moduleName') as string || 'Custom';
     const effectsApplied = formData.get('effectsApplied') as string || 'None';
+    const durationSeconds = parseInt(formData.get('durationSeconds') as string || '180');
 
     if (!file) {
       return NextResponse.json(
@@ -97,16 +100,22 @@ export async function POST(request: NextRequest) {
     const audioAnalysis = analyzeAudio(file.name, file.size);
     const generatedContent = generateSocialContent(audioAnalysis);
 
+    // Calculate credits and time saved using constants
+    const durationMinutes = durationSeconds / 60;
+    const creditsCharged = calculateJobCost('audio_processing', durationMinutes);
+    const timeSavedMinutes = TIME_SAVED_BASELINES.audio_processing;
+
     // Prepare response with job information
     const jobData = {
       jobId: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       fileName: file.name,
       fileSize: file.size,
+      durationSeconds,
       moduleName,
       effectsApplied,
       status: 'completed',
-      creditsCharged: 50, // Standard processing cost
-      timeSaved: 25, // Estimated minutes saved
+      creditsCharged,
+      timeSaved: timeSavedMinutes,
       processedFileUrl: processedAudio ? `processed_${file.name}` : null,
     };
 

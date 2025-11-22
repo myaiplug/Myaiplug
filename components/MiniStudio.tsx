@@ -36,6 +36,7 @@ export default function MiniStudio() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
+  const [audioDuration, setAudioDuration] = useState<number>(10); // in seconds
   
   // Preset Chains - combinations of effects for different purposes
   interface PresetChain {
@@ -321,8 +322,9 @@ export default function MiniStudio() {
     setUploadProgress("Processing with effects...");
 
     try {
-      // Record the processed audio
-      const blob = await engineRef.current.record(10); // Record 10 seconds
+      // Record the processed audio using the actual audio duration
+      const recordDuration = Math.min(audioDuration, 30); // Cap at 30 seconds for demo
+      const blob = await engineRef.current.record(recordDuration);
       
       // Create FormData for upload
       const formData = new FormData();
@@ -338,6 +340,7 @@ export default function MiniStudio() {
       
       formData.append('moduleName', currentModuleName);
       formData.append('effectsApplied', effectsApplied);
+      formData.append('durationSeconds', audioDuration.toString());
 
       // Send to upload API
       const uploadResponse = await fetch('/api/audio/upload', {
@@ -365,7 +368,7 @@ export default function MiniStudio() {
             },
             body: JSON.stringify({
               type: 'audio_processing',
-              inputDurationSec: 180, // Default duration
+              inputDurationSec: audioDuration,
               inputUrl: uploadedFile.name,
               metadata: {
                 effectsApplied,
@@ -423,6 +426,12 @@ export default function MiniStudio() {
       // Load file into audio engine for preview
       await engineRef.current.loadFromFile(file);
       await engineRef.current.startPlayers();
+      
+      // Get audio duration from the loaded buffer
+      const buffer = engineRef.current.getContext().createBufferSource().buffer;
+      if (buffer) {
+        setAudioDuration(Math.ceil(buffer.duration));
+      }
       
       setUploadProgress(`Loaded: ${file.name}`);
       showToast(`Audio loaded: ${file.name.substring(0, 20)}${file.name.length > 20 ? '...' : ''}`);
