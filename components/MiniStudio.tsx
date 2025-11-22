@@ -340,20 +340,68 @@ export default function MiniStudio() {
       formData.append('effectsApplied', effectsApplied);
 
       // Send to upload API
-      const response = await fetch('/api/audio/upload', {
+      const uploadResponse = await fetch('/api/audio/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
+      if (!uploadResponse.ok) {
         throw new Error('Upload failed');
       }
 
-      const result = await response.json();
+      const uploadResult = await uploadResponse.json();
+      
+      // Try to create a job if user is authenticated
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('sessionToken') : null;
+        if (token) {
+          setUploadProgress("Creating job...");
+          
+          const jobResponse = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              type: 'audio_processing',
+              inputDurationSec: 180, // Default duration
+              inputUrl: uploadedFile.name,
+              metadata: {
+                effectsApplied,
+                moduleName: currentModuleName,
+                fileName: uploadedFile.name,
+                fileSize: uploadedFile.size,
+              },
+            }),
+          });
+
+          if (jobResponse.ok) {
+            const jobResult = await jobResponse.json();
+            showToast("✓ Audio processed & saved to your jobs!");
+          } else {
+            showToast("✓ Audio processed (job not saved - please sign in)");
+          }
+        } else {
+          showToast("✓ Audio processed (sign in to save to jobs)");
+        }
+      } catch (jobError) {
+        console.error("Job creation error:", jobError);
+        showToast("✓ Audio processed (sign in to save to jobs)");
+      }
       
       setUploadProgress("");
       setIsProcessing(false);
-      showToast("✓ Audio processed & saved!");
+      
+      // Download the processed file
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `myaiplug_${uploadedFile.name.replace(/\.[^/.]+$/, '')}_processed.webm`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
       
       // Show discount modal after successful processing
       setTimeout(() => setShowDiscount(true), 500);
