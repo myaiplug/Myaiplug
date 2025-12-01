@@ -513,12 +513,14 @@ export const audioApi = {
     formData.append('preset', preset);
 
     const token = getSessionToken();
+    const headers: HeadersInit = {};
     if (token) {
-      formData.append('sessionToken', token);
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     const response = await fetch(`${API_BASE}/audio/process`, {
       method: 'POST',
+      headers,
       body: formData,
     });
 

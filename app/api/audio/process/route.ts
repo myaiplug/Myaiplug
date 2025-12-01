@@ -7,7 +7,9 @@ import { calculateJobCost } from '@/lib/constants/pricing';
 import type { JobType } from '@/lib/types';
 import { generateSecureId } from '@/lib/utils/secureId';
 
-// Store for processed audio files (in production, use cloud storage)
+// NOTE: In-memory storage for demo/development purposes
+// In production, replace with persistent storage (database, cloud storage)
+// This data will be lost on server restarts and won't work in serverless environments
 const processedFilesStore = new Map<string, {
   originalFileName: string;
   processedAt: Date;
@@ -18,7 +20,7 @@ const processedFilesStore = new Map<string, {
   tokensUsed: number;
 }>();
 
-// Token usage log
+// Token usage log (demo only - use database in production)
 const tokenUsageLog: Array<{
   userId: string;
   jobId: string;
@@ -83,14 +85,12 @@ export async function POST(request: NextRequest) {
     
     let file: File | null = null;
     let preset: string = '';
-    let sessionToken: string | null = null;
     
     // Parse based on content type
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       file = formData.get('audio') as File;
       preset = (formData.get('preset') as string) || 'warmth-master';
-      sessionToken = formData.get('sessionToken') as string;
     } else {
       // Handle case where content type is not multipart
       return NextResponse.json(
@@ -102,12 +102,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get session token from header if not in form data
-    if (!sessionToken) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        sessionToken = authHeader.substring(7);
-      }
+    // Get session token from Authorization header (secure approach)
+    let sessionToken: string | null = null;
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      sessionToken = authHeader.substring(7);
     }
 
     // Validate file
@@ -158,7 +157,8 @@ export async function POST(request: NextRequest) {
     const tokenCost = calculateJobCost(presetConfig.jobType, durationMinutes);
 
     // Check authentication (optional - allow guest processing with limited features)
-    let userId = 'guest_' + generateSecureId('');
+    // Generate cryptographically secure guest ID to prevent prediction
+    let userId = generateSecureId('guest_');
     let userCredits = { balance: 100 }; // Guest gets limited credits
     let isAuthenticated = false;
 

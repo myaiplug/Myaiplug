@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for authentication (optional - for token tracking)
-    let userId = 'guest_' + generateSecureId('').slice(0, 8);
+    // Generate cryptographically secure guest ID to prevent prediction
+    let userId = generateSecureId('guest_');
     let isAuthenticated = false;
     const authHeader = request.headers.get('authorization');
     

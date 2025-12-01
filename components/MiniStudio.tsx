@@ -370,12 +370,23 @@ export default function MiniStudio() {
 
   const handleDownloadProcessed = () => {
     if (processResult?.download?.url) {
-      // In production, this would trigger actual download
-      // For now, show info about the download
-      showToast(`Downloading: ${processResult.download.fileName}`);
-      
-      // Open download URL
-      window.open(processResult.download.url, '_blank');
+      // Validate URL is from our API (security check)
+      const url = processResult.download.url;
+      if (url.startsWith('/api/audio/download/') || url.startsWith(window.location.origin + '/api/audio/download/')) {
+        // Show info about the download
+        showToast(`Downloading: ${processResult.download.fileName}`);
+        
+        // Create a secure download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = processResult.download.fileName || 'processed_audio.wav';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showToast('Invalid download URL');
+      }
     } else {
       showToast('No processed file available. Process audio first.');
     }

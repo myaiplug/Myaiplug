@@ -3,7 +3,9 @@ import { getUserBySession } from '@/lib/services/userService';
 import { getUserCredits } from '@/lib/services/referralService';
 import { getUserJobStats } from '@/lib/services/jobService';
 
-// In-memory token usage log (in production, would be in database)
+// NOTE: In-memory storage for demo/development purposes
+// In production, replace with persistent storage (database)
+// This data will be lost on server restarts and won't work in serverless environments
 const tokenUsageLog: Array<{
   userId: string;
   action: string;
