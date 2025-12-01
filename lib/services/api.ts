@@ -406,6 +406,187 @@ export const leaderboardApi = {
   },
 };
 
+// Audio Processing APIs
+export interface AudioProcessResponse {
+  success: boolean;
+  job?: {
+    id: string;
+    status: string;
+    preset: string;
+    modules: string[];
+  };
+  processing?: {
+    tokensUsed: number;
+    remainingCredits: number;
+    estimatedDuration: string;
+    timeSaved: string;
+  };
+  download?: {
+    url: string;
+    fileName: string;
+    expiresIn: string;
+  };
+  points?: number;
+  message?: string;
+  error?: string;
+}
+
+export interface AudioAnalysisResponse {
+  success: boolean;
+  audioAnalysis?: {
+    title: string;
+    genre: string;
+    mood: string;
+    duration: string;
+    bpm: number;
+    key: string;
+  };
+  generatedContent?: Array<{
+    platform: string;
+    content: string;
+    hashtags?: string[];
+  }>;
+  job?: {
+    id: string;
+    status: string;
+  };
+  download?: {
+    url: string;
+    fileName: string;
+    expiresIn: string;
+  };
+  tokens?: {
+    used: number;
+    credits?: {
+      used: number;
+      remaining: number;
+    };
+  };
+  message?: string;
+  error?: string;
+}
+
+export interface PresetInfo {
+  id: string;
+  name: string;
+  description: string;
+  jobType: string;
+  modules: string[];
+  tokenCost: number;
+}
+
+export const audioApi = {
+  /**
+   * Upload and analyze audio file
+   */
+  async upload(file: File): Promise<AudioAnalysisResponse> {
+    const formData = new FormData();
+    formData.append('audio', file);
+
+    const token = getSessionToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/audio/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to upload audio');
+    }
+
+    return data;
+  },
+
+  /**
+   * Process audio with a specific preset
+   */
+  async process(file: File, preset: string = 'warmth-master'): Promise<AudioProcessResponse> {
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('preset', preset);
+
+    const token = getSessionToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/audio/process`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to process audio');
+    }
+
+    return data;
+  },
+
+  /**
+   * Get available presets with token costs
+   */
+  async getPresets(durationSec: number = 180): Promise<{ success: boolean; presets: PresetInfo[] }> {
+    const response = await fetch(`${API_BASE}/audio/process?duration=${durationSec}`);
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get presets');
+    }
+
+    return data;
+  },
+
+  /**
+   * Get download URL for processed file
+   */
+  async getDownload(fileId: string): Promise<{ success: boolean; url: string; fileName: string }> {
+    const response = await fetch(`${API_BASE}/audio/download/${fileId}`);
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get download');
+    }
+
+    return data;
+  },
+
+  /**
+   * Transcribe audio and optionally analyze lyrics
+   */
+  async transcribe(audioFileName: string, options: { useGenAI?: boolean; enableAnalysis?: boolean } = {}): Promise<any> {
+    const response = await fetch(`${API_BASE}/audio/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audioFileName,
+        useGenAI: options.useGenAI ?? false,
+        enableAnalysis: options.enableAnalysis ?? false,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to transcribe audio');
+    }
+
+    return data;
+  },
+};
+
 // Export helper for checking if user is authenticated
 export function isAuthenticated(): boolean {
   return getSessionToken() !== null;
@@ -419,6 +600,7 @@ export const api = {
   creations: creationApi,
   referrals: referralApi,
   leaderboard: leaderboardApi,
+  audio: audioApi,
   isAuthenticated,
 };
 
