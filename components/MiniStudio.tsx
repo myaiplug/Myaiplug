@@ -370,9 +370,12 @@ export default function MiniStudio() {
 
   const handleDownloadProcessed = () => {
     if (processResult?.download?.url) {
-      // Validate URL is from our API (security check)
+      // Validate URL is a relative path starting with our API prefix
+      // This prevents open redirect attacks
       const url = processResult.download.url;
-      if (url.startsWith('/api/audio/download/') || url.startsWith(window.location.origin + '/api/audio/download/')) {
+      const isValidRelativePath = url.startsWith('/api/audio/download/') && !url.includes('://') && !url.includes('//');
+      
+      if (isValidRelativePath) {
         // Show info about the download
         showToast(`Downloading: ${processResult.download.fileName}`);
         
@@ -385,6 +388,7 @@ export default function MiniStudio() {
         link.click();
         document.body.removeChild(link);
       } else {
+        console.warn('Invalid download URL rejected:', url);
         showToast('Invalid download URL');
       }
     } else {

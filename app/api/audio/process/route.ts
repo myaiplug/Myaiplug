@@ -162,6 +162,10 @@ export async function POST(request: NextRequest) {
     let userCredits = { balance: 100 }; // Guest gets limited credits
     let isAuthenticated = false;
 
+    // Get client IP for guest rate limiting
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown';
+
     if (sessionToken) {
       const authResult = await getUserBySession(sessionToken);
       if (authResult) {
@@ -182,6 +186,21 @@ export async function POST(request: NextRequest) {
             { status: 429 }
           );
         }
+      }
+    } else {
+      // Rate limiting for guest users based on IP
+      // Guests get fewer requests per window than authenticated users
+      const guestRateLimit = checkRateLimit(
+        `guest_audio_process_${clientIp}`,
+        Math.floor(RATE_LIMITS.JOB_CREATE.max / 3), // 1/3 of normal rate limit
+        RATE_LIMITS.JOB_CREATE.window
+      );
+
+      if (!guestRateLimit.allowed) {
+        return NextResponse.json(
+          { success: false, error: 'Guest rate limit exceeded. Sign up for more access.' },
+          { status: 429 }
+        );
       }
     }
 
