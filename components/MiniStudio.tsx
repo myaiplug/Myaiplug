@@ -6,6 +6,7 @@ import { getAudioEngine } from "@/lib/audioEngine";
 import { getAllModules } from "@/lib/audioModules";
 import type { AudioModule } from "@/lib/audioEngine";
 import Knob from "@/components/Knob";
+import { audioApi } from "@/lib/services/api";
 
 export default function MiniStudio() {
   const [modules, setModules] = useState<AudioModule[]>([]);
@@ -15,6 +16,9 @@ export default function MiniStudio() {
   const [knobValues, setKnobValues] = useState<number[]>([]);
   const [activeModules, setActiveModules] = useState<boolean[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [processResult, setProcessResult] = useState<any>(null);
   interface UserPreset { name: string; values: number[]; category?: string; uses?: number; }
   const [userPresets, setUserPresets] = useState<UserPreset[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -38,6 +42,7 @@ export default function MiniStudio() {
   interface PresetChain {
     name: string;
     description: string;
+    presetId: string; // API preset identifier
     moduleIndices: number[]; // indices of modules to activate
     moduleSettings: Array<{ moduleIndex: number; paramValues: number[] }>;
   }
@@ -46,6 +51,7 @@ export default function MiniStudio() {
     {
       name: "Warmth Master",
       description: "Professional warmth and clarity",
+      presetId: "warmth-master",
       moduleIndices: [0, 2, 4], // Warmth, HalfScrew, EQ3
       moduleSettings: [
         { moduleIndex: 0, paramValues: [6] }, // Warmth: 6
@@ -56,6 +62,7 @@ export default function MiniStudio() {
     {
       name: "Vocal Polish",
       description: "Perfect for vocals and podcasts",
+      presetId: "vocal-polish",
       moduleIndices: [0, 1, 4, 5], // Warmth, Widener, EQ3, Reverb
       moduleSettings: [
         { moduleIndex: 0, paramValues: [4] },
@@ -67,6 +74,7 @@ export default function MiniStudio() {
     {
       name: "Bass Heavy",
       description: "Deep bass with controlled highs",
+      presetId: "bass-heavy",
       moduleIndices: [0, 4], // Warmth, EQ3
       moduleSettings: [
         { moduleIndex: 0, paramValues: [8] },
@@ -76,6 +84,7 @@ export default function MiniStudio() {
     {
       name: "Stereo Wide",
       description: "Maximum stereo width",
+      presetId: "stereo-wide",
       moduleIndices: [1, 4, 5], // Widener, EQ3, Reverb
       moduleSettings: [
         { moduleIndex: 1, paramValues: [1.0, 0] }, // Superwide
@@ -86,6 +95,7 @@ export default function MiniStudio() {
     {
       name: "Lo-Fi Vibe",
       description: "Vintage tape aesthetics",
+      presetId: "lo-fi-vibe",
       moduleIndices: [0, 2, 4], // Warmth, HalfScrew, EQ3
       moduleSettings: [
         { moduleIndex: 0, paramValues: [6] }, // Lo-Fi Tape
@@ -96,6 +106,7 @@ export default function MiniStudio() {
     {
       name: "Broadcast Ready",
       description: "Radio-ready professional sound",
+      presetId: "broadcast-ready",
       moduleIndices: [0, 1, 3, 4], // Warmth, Widener, reTUNE, EQ3
       moduleSettings: [
         { moduleIndex: 0, paramValues: [5] },
@@ -310,38 +321,89 @@ export default function MiniStudio() {
 
   const handleUpload = async (file: File) => {
     if (!engineRef.current) return;
+    
+    // Store the uploaded file for later processing
+    setUploadedFile(file);
+    
+    // Load into audio engine for preview
     await engineRef.current.loadFromFile(file);
     await engineRef.current.startPlayers();
+    
+    showToast(`Loaded: ${file.name}`);
+  };
+
+  const handleProcessWithPreset = async (chain: PresetChain) => {
+    if (!uploadedFile) {
+      showToast('Please upload an audio file first');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Call the API to process the audio with the selected preset
+      const result = await audioApi.process(uploadedFile, chain.presetId);
+      
+      setProcessResult(result);
+      
+      // Show success with token usage
+      const tokensMsg = result.processing 
+        ? `Used ${result.processing.tokensUsed} tokens. ${result.processing.remainingCredits} remaining.`
+        : '';
+      
+      showToast(`✅ Processed with ${chain.name}! ${tokensMsg}`);
+      
+      // Apply the preset chain locally as well
+      applyPresetChain(chain);
+      
+      // If there's a download URL, prompt for download
+      if (result.download?.url) {
+        showToast(`Download ready: ${result.download.fileName}`);
+      }
+      
+    } catch (error) {
+      console.error('Processing error:', error);
+      showToast(error instanceof Error ? error.message : 'Processing failed. Try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDownloadProcessed = () => {
+    if (processResult?.download?.url) {
+      // In production, this would trigger actual download
+      // For now, show info about the download
+      showToast(`Downloading: ${processResult.download.fileName}`);
+      
+      // Open download URL
+      window.open(processResult.download.url, '_blank');
+    } else {
+      showToast('No processed file available. Process audio first.');
+    }
   };
 
   const handleTranscribe = async (enableAnalysis: boolean = false) => {
     setTranscribing(true);
     try {
-      const response = await fetch('/api/audio/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audioFileName: 'uploaded_audio.mp3',
-          useGenAI: true,
-          enableAnalysis,
-        }),
+      const fileName = uploadedFile?.name || 'uploaded_audio.mp3';
+      const result = await audioApi.transcribe(fileName, {
+        useGenAI: true,
+        enableAnalysis,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Transcription failed');
-      }
-
-      const data = await response.json();
-      setTranscriptionData(data);
+      setTranscriptionData(result);
       setShowTranscription(true);
       
-      if (data.analysis?.isFeatured) {
+      // Show token usage
+      if (result.pricing) {
+        showToast(`Used ${result.pricing.total} credits for transcription`);
+      }
+      
+      if (result.analysis?.isFeatured) {
         showToast('🌟 This track has hit potential!');
       }
     } catch (error) {
       console.error('Transcription error:', error);
-      showToast('Transcription failed. Try again.');
+      showToast(error instanceof Error ? error.message : 'Transcription failed. Try again.');
     } finally {
       setTranscribing(false);
     }
@@ -576,19 +638,60 @@ export default function MiniStudio() {
                 </button>
               )}
               
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2 mt-6">Preset Chains</div>
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2 mt-6">
+                One-Click Presets {uploadedFile && <span className="text-myai-accent">• File Ready</span>}
+              </div>
               <div className="space-y-2 mb-6">
                 {PRESET_CHAINS.map((chain, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => applyPresetChain(chain)}
-                    className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-accent/10 hover:border-myai-accent/30 hover:shadow-lg hover:shadow-myai-accent/20 transition-all duration-200"
-                  >
-                    <div className="text-sm font-semibold text-white">{chain.name}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">{chain.description}</div>
-                  </button>
+                  <div key={idx} className="flex gap-2">
+                    <button
+                      onClick={() => applyPresetChain(chain)}
+                      className="flex-1 text-left px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-myai-accent/10 hover:border-myai-accent/30 hover:shadow-lg hover:shadow-myai-accent/20 transition-all duration-200"
+                    >
+                      <div className="text-sm font-semibold text-white">{chain.name}</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{chain.description}</div>
+                    </button>
+                    {uploadedFile && (
+                      <button
+                        onClick={() => handleProcessWithPreset(chain)}
+                        disabled={isProcessing}
+                        className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-200 ${
+                          isProcessing 
+                            ? 'bg-gray-600 border-gray-500 cursor-not-allowed' 
+                            : 'bg-myai-primary/20 border-myai-primary/40 hover:bg-myai-primary/30'
+                        }`}
+                        title={`Process with ${chain.name}`}
+                      >
+                        {isProcessing ? '...' : '▶'}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
+
+              {/* Process Result / Download */}
+              {processResult && (
+                <div className="mb-4 p-3 rounded-lg bg-green-900/20 border border-green-500/30">
+                  <div className="text-xs uppercase tracking-wider text-green-400 mb-2">✓ Processing Complete</div>
+                  <div className="text-xs text-gray-300 space-y-1">
+                    {processResult.processing && (
+                      <>
+                        <div>Tokens used: <span className="text-white font-semibold">{processResult.processing.tokensUsed}</span></div>
+                        <div>Credits remaining: <span className="text-white font-semibold">{processResult.processing.remainingCredits}</span></div>
+                      </>
+                    )}
+                    {processResult.points > 0 && (
+                      <div>Points earned: <span className="text-yellow-400 font-semibold">+{processResult.points}</span></div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleDownloadProcessed}
+                    className="mt-2 w-full px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold text-sm transition-all duration-200"
+                  >
+                    📥 Download Processed Audio
+                  </button>
+                </div>
+              )}
 
               
               <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Level</div>

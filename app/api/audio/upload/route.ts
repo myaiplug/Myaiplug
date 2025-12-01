@@ -1,4 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getUserBySession } from '@/lib/services/userService';
+import { createJob, simulateJobProcessing } from '@/lib/services/jobService';
+import { getUserCredits } from '@/lib/services/referralService';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/services/antiAbuseService';
+import { generateSecureId } from '@/lib/utils/secureId';
+
+// Token usage tracking
+interface TokenUsageEntry {
+  userId: string;
+  action: string;
+  tokensUsed: number;
+  timestamp: Date;
+  details?: Record<string, unknown>;
+}
+
+const tokenUsageLog: TokenUsageEntry[] = [];
+
+// Log token usage (internal function)
+function logTokenUsage(entry: TokenUsageEntry): void {
+  tokenUsageLog.push(entry);
+  console.log(`[Token Usage] User: ${entry.userId}, Action: ${entry.action}, Tokens: ${entry.tokensUsed}`);
+}
 
 // Simulated audio analysis function
 // In production, this would integrate with actual audio processing libraries
@@ -21,6 +43,7 @@ function analyzeAudio(fileName: string, fileSize: number) {
     genre: genres[genreIndex],
     mood: moods[moodIndex],
     duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+    durationSeconds,
     bpm: 120 + (fileSize % 60),
     key: ['C', 'D', 'E', 'F', 'G', 'A', 'B'][fileSize % 7] + [' Major', ' Minor'][fileSize % 2],
   };
@@ -59,21 +82,42 @@ function generateSocialContent(analysis: ReturnType<typeof analyzeAudio>) {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    // Validate content type
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid content type. Expected multipart/form-data.' },
+        { status: 400 }
+      );
+    }
+
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (parseError) {
+      console.error('Form data parse error:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to parse form data. Ensure the request is properly formatted.' },
+        { status: 400 }
+      );
+    }
+
     const file = formData.get('audio') as File;
 
     if (!file) {
       return NextResponse.json(
-        { error: 'No audio file provided' },
+        { success: false, error: 'No audio file provided. Use "audio" field in form data.' },
         { status: 400 }
       );
     }
 
     // Validate file type
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg'];
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|m4a|ogg)$/i)) {
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
+    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
+    
+    if (!validTypes.includes(file.type) && !file.name.match(validExtensions)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG)' },
+        { success: false, error: 'Invalid file type. Supported formats: MP3, WAV, FLAC, M4A, OGG, WebM' },
         { status: 400 }
       );
     }
@@ -82,10 +126,54 @@ export async function POST(request: NextRequest) {
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB' },
+        { success: false, error: 'File too large. Maximum size is 50MB.' },
         { status: 400 }
       );
     }
+
+    // Check for authentication (optional - for token tracking)
+    let userId = 'guest_' + generateSecureId('').slice(0, 8);
+    let isAuthenticated = false;
+    const authHeader = request.headers.get('authorization');
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const sessionToken = authHeader.substring(7);
+      const authResult = await getUserBySession(sessionToken);
+      if (authResult) {
+        userId = authResult.user.id;
+        isAuthenticated = true;
+
+        // Rate limiting for authenticated users
+        const rateLimit = checkRateLimit(
+          `audio_upload_${userId}`,
+          RATE_LIMITS.JOB_CREATE.max,
+          RATE_LIMITS.JOB_CREATE.window
+        );
+
+        if (!rateLimit.allowed) {
+          return NextResponse.json(
+            { success: false, error: 'Rate limit exceeded. Please wait before uploading more files.' },
+            { status: 429 }
+          );
+        }
+      }
+    }
+
+    // Calculate token cost for analysis (10 tokens base)
+    const analysisCost = 10;
+
+    // Log token usage
+    logTokenUsage({
+      userId,
+      action: 'audio_analysis',
+      tokensUsed: analysisCost,
+      timestamp: new Date(),
+      details: {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+      },
+    });
 
     // Simulate processing delay (in production, this would be actual audio processing)
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -94,27 +182,91 @@ export async function POST(request: NextRequest) {
     const audioAnalysis = analyzeAudio(file.name, file.size);
     const generatedContent = generateSocialContent(audioAnalysis);
 
+    // Create a job record for tracking
+    let job = null;
+    if (isAuthenticated) {
+      try {
+        job = await createJob({
+          userId,
+          type: 'audio_basic',
+          inputDurationSec: audioAnalysis.durationSeconds,
+          tier: 'free',
+          inputUrl: file.name,
+        });
+        
+        // Simulate job completion
+        await simulateJobProcessing(job.id);
+      } catch (jobError) {
+        console.error('Job creation error:', jobError);
+        // Continue without job - not critical for upload
+      }
+    }
+
+    // Generate download URL
+    const processedId = generateSecureId('upload_');
+    const downloadUrl = `/api/audio/download/${processedId}`;
+
+    // Get credits info if authenticated
+    let credits = null;
+    if (isAuthenticated) {
+      const userCredits = getUserCredits(userId);
+      credits = {
+        used: analysisCost,
+        remaining: userCredits.balance - analysisCost,
+      };
+    }
+
     return NextResponse.json({
       success: true,
       audioAnalysis,
       generatedContent,
+      job: job ? {
+        id: job.id,
+        status: 'done',
+      } : null,
+      download: {
+        url: downloadUrl,
+        fileName: `${audioAnalysis.title}_processed.wav`,
+        expiresIn: '24 hours',
+      },
+      tokens: {
+        used: analysisCost,
+        credits,
+      },
       message: 'Audio processed successfully',
     });
 
   } catch (error) {
     console.error('Audio processing error:', error);
+    
+    // Always return valid JSON
     return NextResponse.json(
-      { error: 'Failed to process audio file' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to process audio file',
+        hint: 'Ensure the file is a valid audio format and under 50MB.'
+      },
       { status: 500 }
     );
   }
 }
 
-// GET endpoint for testing
+// GET endpoint for testing and status
 export async function GET() {
+  // Return API info
   return NextResponse.json({
+    success: true,
     message: 'Audio upload API endpoint',
     methods: ['POST'],
     accepts: 'multipart/form-data with "audio" field',
+    supportedFormats: ['MP3', 'WAV', 'FLAC', 'M4A', 'OGG', 'WebM'],
+    maxSize: '50MB',
+    features: [
+      'Audio analysis (genre, mood, BPM, key)',
+      'Social media content generation',
+      'Token usage tracking',
+      'Job creation for authenticated users',
+      'Download URL generation',
+    ],
   });
 }
