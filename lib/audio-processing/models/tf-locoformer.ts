@@ -348,21 +348,9 @@ class TFLocoformerBlock {
     freq: number,
     channels: number
   ): Float32Array {
-    // Reshape for frequency attention: [batch * time, freq, channels]
-    const reshaped = new Float32Array(x.length);
-    for (let b = 0; b < batch; b++) {
-      for (let t = 0; t < time; t++) {
-        for (let f = 0; f < freq; f++) {
-          for (let c = 0; c < channels; c++) {
-            const srcIdx = ((b * time + t) * freq + f) * channels + c;
-            const dstIdx = ((b * time + t) * freq + f) * channels + c;
-            reshaped[dstIdx] = x[srcIdx];
-          }
-        }
-      }
-    }
-
-    return this.freqAttention.forward(reshaped, [batch * time, freq, channels]);
+    // For frequency attention, data is already in correct layout [batch * time, freq, channels]
+    // No reshape needed since we process across frequency dimension for each time step
+    return this.freqAttention.forward(x, [batch * time, freq, channels]);
   }
 
   private processFFN(

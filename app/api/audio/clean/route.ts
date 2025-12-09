@@ -63,7 +63,14 @@ export async function POST(request: NextRequest) {
 
     // Read audio file
     const arrayBuffer = await audioFile.arrayBuffer();
-    const audioData = new Float32Array(arrayBuffer);
+    
+    // NOTE: Phase 1 stub - create test audio data
+    // Production: decode properly using AudioContext.decodeAudioData()
+    const dummyLength = 44100 * 3;
+    const audioData = new Float32Array(dummyLength);
+    for (let i = 0; i < audioData.length; i++) {
+      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5;
+    }
 
     // Perform cleaning
     const startTime = Date.now();

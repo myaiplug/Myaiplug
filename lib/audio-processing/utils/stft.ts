@@ -66,7 +66,7 @@ export function padSignal(signal: Float32Array, padSize: number): Float32Array {
   
   // Reflect left
   for (let i = 0; i < padSize; i++) {
-    padded[i] = signal[padSize - i];
+    padded[i] = signal[padSize - 1 - i];
   }
   
   // Reflect right
@@ -156,7 +156,7 @@ export function stft(
 
 /**
  * Simplified FFT implementation
- * Note: In production, use a proper FFT library like fft.js or kiss-fft
+ * Note: In production, use a proper FFT library like fft.js, dsp.js, or WebAssembly-compiled FFT
  */
 function simpleFFT(input: Float32Array, onesided: boolean): Complex {
   const N = input.length;

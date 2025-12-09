@@ -111,57 +111,73 @@ export async function selectBestDevice(preferredType?: DeviceType): Promise<Devi
   return cpu;
 }
 
-/**
- * Check if RTX 2080 Super or better is available
- */
-export function checkGPUCapability(device: DeviceInfo): {
-  isRTX2080OrBetter: boolean;
-  estimatedPerformance: 'high' | 'medium' | 'low';
-  supportsRealtime: boolean;
-} {
-  if (device.type === DeviceType.CPU) {
+  /**
+   * Check if RTX 2080 Super or better is available
+   * Uses performance tier mapping for accurate comparison
+   */
+  export function checkGPUCapability(device: DeviceInfo): {
+    isRTX2080OrBetter: boolean;
+    estimatedPerformance: 'high' | 'medium' | 'low';
+    supportsRealtime: boolean;
+  } {
+    if (device.type === DeviceType.CPU) {
+      return {
+        isRTX2080OrBetter: false,
+        estimatedPerformance: 'low',
+        supportsRealtime: false,
+      };
+    }
+
+    // Check GPU name for RTX series
+    const gpuName = device.name.toLowerCase();
+    const isRTX = gpuName.includes('rtx') || gpuName.includes('geforce');
+    
+    // Try to estimate GPU capability
+    let estimatedPerformance: 'high' | 'medium' | 'low' = 'medium';
+    let isRTX2080OrBetter = false;
+
+    if (isRTX) {
+      // Parse RTX model number with generation awareness
+      const rtxMatch = gpuName.match(/rtx\s*(\d+)/);
+      if (rtxMatch) {
+        const modelNum = parseInt(rtxMatch[1]);
+        
+        // RTX series performance tiers
+        // 40xx series (4090, 4080, 4070, etc.)
+        if (modelNum >= 4070) {
+          isRTX2080OrBetter = true;
+          estimatedPerformance = 'high';
+        }
+        // 30xx series (3090, 3080, 3070, 3060)
+        else if (modelNum >= 3070) {
+          isRTX2080OrBetter = true;
+          estimatedPerformance = 'high';
+        } else if (modelNum >= 3060) {
+          estimatedPerformance = 'medium';
+        }
+        // 20xx series (2080 Ti, 2080 Super, 2080, 2070, 2060)
+        else if (modelNum >= 2080 || gpuName.includes('2080')) {
+          isRTX2080OrBetter = true;
+          estimatedPerformance = 'high';
+        } else if (modelNum >= 2070) {
+          estimatedPerformance = 'medium';
+        } else if (modelNum >= 2060) {
+          estimatedPerformance = 'medium';
+        }
+      }
+    } else if (gpuName.includes('titan')) {
+      isRTX2080OrBetter = true;
+      estimatedPerformance = 'high';
+    } else if (gpuName.includes('quadro')) {
+      estimatedPerformance = 'medium';
+    }
+
     return {
-      isRTX2080OrBetter: false,
-      estimatedPerformance: 'low',
-      supportsRealtime: false,
+      isRTX2080OrBetter,
+      estimatedPerformance,
+      supportsRealtime: isRTX2080OrBetter || estimatedPerformance === 'high',
     };
   }
-
-  // Check GPU name for RTX series
-  const gpuName = device.name.toLowerCase();
-  const isRTX = gpuName.includes('rtx') || gpuName.includes('geforce');
-  
-  // Try to estimate GPU capability
-  let estimatedPerformance: 'high' | 'medium' | 'low' = 'medium';
-  let isRTX2080OrBetter = false;
-
-  if (isRTX) {
-    // Parse RTX model number
-    const rtxMatch = gpuName.match(/rtx\s*(\d+)/);
-    if (rtxMatch) {
-      const modelNum = parseInt(rtxMatch[1]);
-      
-      // RTX 2080 or better (2080, 2080 Ti, 3000 series, 4000 series)
-      if (modelNum >= 2080) {
-        isRTX2080OrBetter = true;
-        estimatedPerformance = 'high';
-      } else if (modelNum >= 2060) {
-        estimatedPerformance = 'medium';
-      }
-    }
-  } else if (gpuName.includes('titan')) {
-    isRTX2080OrBetter = true;
-    estimatedPerformance = 'high';
-  } else if (gpuName.includes('quadro')) {
-    estimatedPerformance = 'medium';
-  }
-
-  return {
-    isRTX2080OrBetter,
-    estimatedPerformance,
-    supportsRealtime: isRTX2080OrBetter || estimatedPerformance === 'high',
-  };
-}
 
 /**
  * Device manager for model execution

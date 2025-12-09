@@ -224,7 +224,9 @@ export class TFLocoformerInference {
     const stems = new Map<string, Float32Array>();
 
     // Split output into individual stems
+    // Output layout: [batch, time, freq * complex * num_stems]
     const complexSize = freqBins * 2;
+    const stemComplexSize = complexSize;
     
     for (let s = 0; s < numStems; s++) {
       const stemName = this.config.stemNames[s];
@@ -235,7 +237,13 @@ export class TFLocoformerInference {
 
       for (let t = 0; t < timeFrames; t++) {
         for (let f = 0; f < freqBins; f++) {
-          const outputIdx = t * (freqBins * numStems * 2) + s * complexSize + f * 2;
+          // Output is [time, freq * 2 * num_stems]
+          // For each time frame: [freq0_stem0_real, freq0_stem0_imag, freq0_stem1_real, ...]
+          const timeOffset = t * (freqBins * 2 * numStems);
+          const freqOffset = f * 2 * numStems;
+          const stemOffset = s * 2;
+          const outputIdx = timeOffset + freqOffset + stemOffset;
+          
           const spectIdx = t * freqBins + f;
           
           stemReal[spectIdx] = modelOutput[outputIdx];

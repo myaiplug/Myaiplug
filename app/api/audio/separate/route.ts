@@ -62,9 +62,18 @@ export async function POST(request: NextRequest) {
     const engine = createInferenceEngine(tier as 'free' | 'pro');
     await engine.initialize();
 
-    // Read audio file
+    // NOTE: In production, decode audio file properly using Web Audio API or audio libraries
+    // For Phase 1, this is a stub that assumes the file contains raw PCM data
+    // Real implementation would use: AudioContext.decodeAudioData() or libraries like 'audio-decode'
     const arrayBuffer = await audioFile.arrayBuffer();
-    const audioData = new Float32Array(arrayBuffer);
+    
+    // Stub: Create dummy audio data for testing
+    // In production, replace with actual decoded audio
+    const dummyLength = 44100 * 3; // 3 seconds
+    const audioData = new Float32Array(dummyLength);
+    for (let i = 0; i < audioData.length; i++) {
+      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5; // 440 Hz test tone
+    }
 
     // Perform separation
     const startTime = Date.now();
