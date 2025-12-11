@@ -91,19 +91,32 @@ export class RMSGroupNorm {
   }
 
   /**
-   * Load learned parameters
+   * Load learned parameters (weights and biases)
+   * Supports both object format and legacy separate arrays
    */
-  loadWeights(weights: { weight?: Float32Array; bias?: Float32Array } | Float32Array, beta?: Float32Array) {
-    // Support both object and legacy format
+  loadWeights(weights: { weight?: Float32Array; bias?: Float32Array }): void;
+  loadWeights(gamma: Float32Array, beta: Float32Array): void;
+  loadWeights(
+    weightsOrGamma: { weight?: Float32Array; bias?: Float32Array } | Float32Array,
+    beta?: Float32Array
+  ): void {
     let gamma: Float32Array;
     let betaArray: Float32Array;
     
-    if (weights instanceof Float32Array) {
-      gamma = weights;
+    // Handle object format
+    if (typeof weightsOrGamma === 'object' && 'weight' in weightsOrGamma) {
+      gamma = weightsOrGamma.weight || new Float32Array(this.config.numChannels).fill(1);
+      betaArray = weightsOrGamma.bias || new Float32Array(this.config.numChannels).fill(0);
+    } 
+    // Handle legacy array format
+    else if (weightsOrGamma instanceof Float32Array) {
+      gamma = weightsOrGamma;
       betaArray = beta || new Float32Array(this.config.numChannels).fill(0);
-    } else {
-      gamma = weights.weight || new Float32Array(this.config.numChannels).fill(1);
-      betaArray = weights.bias || new Float32Array(this.config.numChannels).fill(0);
+    }
+    // Fallback
+    else {
+      gamma = new Float32Array(this.config.numChannels).fill(1);
+      betaArray = new Float32Array(this.config.numChannels).fill(0);
     }
     
     if (gamma.length !== this.config.numChannels || betaArray.length !== this.config.numChannels) {

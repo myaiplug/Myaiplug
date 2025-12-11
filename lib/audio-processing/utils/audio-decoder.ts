@@ -38,15 +38,18 @@ export const SUPPORTED_FORMATS = [
  * Check if the audio format is supported
  */
 export function isSupportedFormat(mimeType: string, filename?: string): boolean {
-  // Check MIME type
-  if (SUPPORTED_FORMATS.includes(mimeType as any)) {
+  // Check MIME type with type-safe includes check
+  const isMimeTypeSupported = (SUPPORTED_FORMATS as readonly string[]).includes(mimeType);
+  
+  if (isMimeTypeSupported) {
     return true;
   }
   
-  // Fallback to filename extension
+  // Fallback to filename extension for audio files only
   if (filename) {
     const ext = filename.toLowerCase().split('.').pop();
-    return ['wav', 'mp3', 'flac', 'ogg', 'webm', 'm4a', 'mp4'].includes(ext || '');
+    const audioExtensions = ['wav', 'mp3', 'flac', 'ogg', 'webm', 'm4a'];
+    return ext ? audioExtensions.includes(ext) : false;
   }
   
   return false;

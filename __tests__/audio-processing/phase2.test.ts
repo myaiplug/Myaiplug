@@ -94,7 +94,9 @@ describe('Audio Decoder', () => {
     expect(isSupportedFormat('application/octet-stream', 'audio.mp3')).toBe(true);
     expect(isSupportedFormat('application/octet-stream', 'audio.flac')).toBe(true);
     
+    // Non-audio files should return false
     expect(isSupportedFormat('application/octet-stream', 'document.pdf')).toBe(false);
+    expect(isSupportedFormat('video/mp4', 'video.mp4')).toBe(false);
   });
 
   test('validateAudioConstraints checks file size', () => {
