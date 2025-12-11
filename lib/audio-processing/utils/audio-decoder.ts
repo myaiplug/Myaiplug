@@ -87,6 +87,10 @@ export function validateAudioConstraints(
  * Convert stereo to mono by averaging channels
  */
 export function stereoToMono(audioData: Float32Array, channels: number): Float32Array {
+  if (channels <= 0) {
+    throw new Error('Invalid number of channels: must be greater than 0');
+  }
+  
   if (channels === 1) {
     return audioData;
   }

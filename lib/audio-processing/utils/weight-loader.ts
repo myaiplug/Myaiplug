@@ -258,21 +258,45 @@ function randomWeights(size: number, scale: number = 0.02): Float32Array {
 
 /**
  * Deserialize weights from binary format
- * This is a placeholder - actual format depends on your weight serialization
+ * TODO: Implement actual deserialization based on your weight file format
+ * 
+ * Expected format:
+ * - Header: JSON metadata (version, modelType, etc.)
+ * - Body: Float32Array weights in sequential order
+ * 
+ * @param buffer - Binary buffer containing serialized weights
+ * @param modelType - Model type (medium or pro)
+ * @returns Deserialized ModelWeights object
  */
 function deserializeWeights(buffer: Buffer, modelType: 'medium' | 'pro'): ModelWeights {
-  // TODO: Implement actual deserialization based on your weight file format
-  // For now, return placeholder weights
-  console.warn('Weight deserialization not fully implemented - using placeholder weights');
+  // TODO: Implement actual deserialization
+  // This is a placeholder implementation
+  // Real implementation depends on the serialization format of your pretrained weights
+  
+  console.warn('Weight deserialization not fully implemented');
+  console.warn('Using placeholder weights - model will not produce meaningful results');
+  console.warn('To use pretrained weights, implement deserializeWeights() based on your weight format');
+  
   return createPlaceholderWeights(modelType);
 }
 
 /**
  * Serialize weights to binary format for saving
+ * TODO: Implement actual serialization matching deserializeWeights format
+ * 
+ * This function is not currently used but provided for future weight saving functionality
+ * 
+ * @param weights - ModelWeights object to serialize
+ * @returns Serialized binary buffer
  */
 export function serializeWeights(weights: ModelWeights): Buffer {
   // TODO: Implement actual serialization
-  // This is a placeholder for future weight saving functionality
+  // This is a placeholder that only saves metadata
+  // Real implementation should serialize all weight arrays
+  
+  console.warn('Weight serialization not fully implemented');
+  console.warn('Only metadata will be saved - actual weights will be lost');
+  
   const metadata = JSON.stringify(weights.metadata);
   return Buffer.from(metadata);
 }
@@ -315,6 +339,14 @@ export function validateWeights(weights: ModelWeights): boolean {
 
 /**
  * Download weights from a URL (for future cloud storage integration)
+ * 
+ * TODO: Implement actual downloading from cloud storage (S3, GCS, etc.)
+ * Currently this function is a placeholder and falls back to local file loading
+ * 
+ * @param url - URL to download weights from (not currently used)
+ * @param modelType - Model type (medium or pro)
+ * @param version - Version string
+ * @returns Promise resolving to ModelWeights
  */
 export async function downloadWeights(
   url: string,
@@ -322,7 +354,10 @@ export async function downloadWeights(
   version: string = 'latest'
 ): Promise<ModelWeights> {
   // TODO: Implement weight downloading from cloud storage
-  // For now, just load from local file
-  console.log(`Weight downloading from ${url} not yet implemented`);
+  // For now, fall back to local file loading
+  
+  console.warn(`Weight downloading from URL not yet implemented: ${url}`);
+  console.warn('Falling back to local file loading');
+  
   return loadWeightsFromFile(modelType, version);
 }

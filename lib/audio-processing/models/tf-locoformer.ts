@@ -396,6 +396,37 @@ class TFLocoformerBlock {
     }
     return output;
   }
+
+  /**
+   * Load pretrained weights into this block
+   */
+  loadWeights(weights: any): void {
+    // Load time attention weights
+    if (weights.timeAttention) {
+      this.timeAttention.loadWeights(weights.timeAttention);
+    }
+    
+    // Load frequency attention weights
+    if (weights.freqAttention) {
+      this.freqAttention.loadWeights(weights.freqAttention);
+    }
+    
+    // Load normalization weights
+    if (weights.norm1) {
+      this.norm1.loadWeights(weights.norm1);
+    }
+    if (weights.norm2) {
+      this.norm2.loadWeights(weights.norm2);
+    }
+    if (weights.norm3) {
+      this.norm3.loadWeights(weights.norm3);
+    }
+    
+    // Load ConvSwiGLU weights
+    if (weights.convSwiGLU) {
+      this.convSwiGLU.loadWeights(weights.convSwiGLU);
+    }
+  }
 }
 
 /**
@@ -466,35 +497,10 @@ export class TFLocoformer {
         );
       }
       
-      // Load block weights
+      // Load block weights using public method
       for (let i = 0; i < this.blocks.length && i < weights.weights.blocks.length; i++) {
         const blockWeights = weights.weights.blocks[i];
-        const block = this.blocks[i] as any; // Cast to access private members
-        
-        // Load attention weights (simplified - actual implementation depends on block structure)
-        if (blockWeights.timeAttention && block.timeAttention) {
-          block.timeAttention.loadWeights(blockWeights.timeAttention);
-        }
-        
-        if (blockWeights.freqAttention && block.freqAttention) {
-          block.freqAttention.loadWeights(blockWeights.freqAttention);
-        }
-        
-        // Load normalization weights
-        if (blockWeights.norm1 && block.norm1) {
-          block.norm1.loadWeights(blockWeights.norm1);
-        }
-        if (blockWeights.norm2 && block.norm2) {
-          block.norm2.loadWeights(blockWeights.norm2);
-        }
-        if (blockWeights.norm3 && block.norm3) {
-          block.norm3.loadWeights(blockWeights.norm3);
-        }
-        
-        // Load ConvSwiGLU weights
-        if (blockWeights.convSwiGLU && block.convSwiGLU) {
-          block.convSwiGLU.loadWeights(blockWeights.convSwiGLU);
-        }
+        this.blocks[i].loadWeights(blockWeights);
       }
       
       // Load output projection weights
