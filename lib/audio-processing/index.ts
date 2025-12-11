@@ -44,6 +44,27 @@ export {
 export type { STFTConfig, Complex } from './utils/stft';
 
 export {
+  decodeAudioFile,
+  decodeWAV,
+  isSupportedFormat,
+  validateAudioConstraints,
+  stereoToMono,
+  resampleAudio,
+  streamDecodeAudio,
+  SUPPORTED_FORMATS,
+} from './utils/audio-decoder';
+export type { AudioInfo, DecodedAudio } from './utils/audio-decoder';
+
+export {
+  loadWeightsFromFile,
+  clearWeightCache,
+  getWeightCacheStats,
+  validateWeights,
+  getWeightsDir,
+} from './utils/weight-loader';
+export type { WeightMetadata, ModelWeights } from './utils/weight-loader';
+
+export {
   detectDevices,
   selectBestDevice,
   checkGPUCapability,
@@ -55,8 +76,16 @@ export {
 export type { DeviceInfo } from './utils/device';
 
 // Version
-export const VERSION = '1.0.0-phase1';
+export const VERSION = '1.0.0-phase2';
 export const MODEL_VERSION = 'medium-6block';
+export const FEATURES = {
+  optimizedFFT: true,
+  realAudioDecoding: true,
+  weightLoading: true,
+  modelCaching: true,
+  streamingSupport: true,
+  gpuOptimization: true,
+};
 
 /**
  * Quick start example:

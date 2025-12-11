@@ -1,0 +1,37 @@
+# TF-Locoformer Pretrained Weights
+
+This directory stores pretrained model weights for TF-Locoformer inference.
+
+## Expected Files
+
+- `tf-locoformer-medium.bin` - Free tier model (2 stems: vocals, instrumental)
+- `tf-locoformer-pro.bin` - Pro tier model (5 stems: vocals, drums, bass, instruments, fx)
+
+## Weight File Format
+
+Weight files should be in binary format containing:
+1. Metadata (JSON header)
+2. Model weights (Float32Array serialized)
+
+See `lib/audio-processing/utils/weight-loader.ts` for the expected structure.
+
+## If Weights Are Missing
+
+The system will automatically:
+1. Log a warning
+2. Use randomly initialized weights (not recommended for production)
+3. Continue operation (useful for development/testing)
+
+## Obtaining Weights
+
+To use pretrained weights:
+1. Train TF-Locoformer on your dataset, or
+2. Obtain pretrained weights from model providers
+3. Serialize to the expected binary format
+4. Place in this directory
+5. Restart the server
+
+## Note
+
+Weight files are excluded from git (see `.gitignore`) due to their size.
+You may want to store them in cloud storage (S3, GCS) for production deployments.

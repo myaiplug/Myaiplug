@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
+import { 
+  decodeAudioFile, 
+  isSupportedFormat, 
+  validateAudioConstraints 
+} from '@/lib/audio-processing/utils/audio-decoder';
 
 /**
  * POST /api/audio/separate
@@ -35,20 +40,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
+    // Validate file type using new audio decoder utility
+    if (!isSupportedFormat(audioFile.type, audioFile.name)) {
       return NextResponse.json(
         { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
         { status: 400 }
       );
     }
 
-    // Validate file size (100MB max)
-    const maxSize = 100 * 1024 * 1024;
-    if (audioFile.size > maxSize) {
+    // Validate file size
+    const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
+    if (!sizeValidation.valid) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 100MB' },
+        { error: sizeValidation.error },
         { status: 400 }
       );
     }
@@ -62,17 +66,42 @@ export async function POST(request: NextRequest) {
     const engine = createInferenceEngine(tier as 'free' | 'pro');
     await engine.initialize();
 
-    // NOTE: In production, decode audio file properly using Web Audio API or audio libraries
-    // For Phase 1, this is a stub that assumes the file contains raw PCM data
-    // Real implementation would use: AudioContext.decodeAudioData() or libraries like 'audio-decode'
+    // Decode audio file using the new audio decoder
     const arrayBuffer = await audioFile.arrayBuffer();
+    let audioData: Float32Array;
+    let actualSampleRate: number;
+    let actualDuration: number;
     
-    // Stub: Create dummy audio data for testing
-    // In production, replace with actual decoded audio
-    const dummyLength = 44100 * 3; // 3 seconds
-    const audioData = new Float32Array(dummyLength);
-    for (let i = 0; i < audioData.length; i++) {
-      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5; // 440 Hz test tone
+    try {
+      console.log('Decoding audio file...');
+      const decoded = await decodeAudioFile(arrayBuffer, 44100, true);
+      audioData = decoded.audioData;
+      actualSampleRate = decoded.info.sampleRate;
+      actualDuration = decoded.info.duration;
+      
+      // Validate duration after decoding
+      const durationValidation = validateAudioConstraints(
+        audioFile.size, 
+        actualDuration, 
+        tier as 'free' | 'pro'
+      );
+      if (!durationValidation.valid) {
+        return NextResponse.json(
+          { error: durationValidation.error },
+          { status: 400 }
+        );
+      }
+      
+      console.log(`Decoded ${actualDuration.toFixed(2)}s of audio at ${actualSampleRate}Hz`);
+    } catch (decodeError) {
+      console.error('Audio decoding error:', decodeError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to decode audio file',
+          details: decodeError instanceof Error ? decodeError.message : 'Unknown error'
+        },
+        { status: 400 }
+      );
     }
 
     // Perform separation
@@ -80,7 +109,7 @@ export async function POST(request: NextRequest) {
     const result = await engine.separate(audioData, {
       tier: tier as 'free' | 'pro',
       outputFormat: format as 'wav' | 'mp3' | 'flac',
-      sampleRate: 44100,
+      sampleRate: actualSampleRate,
       normalize,
     });
 

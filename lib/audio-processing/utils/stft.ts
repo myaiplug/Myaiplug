@@ -3,6 +3,8 @@
  * Provides time-frequency domain conversion for TF-Locoformer
  */
 
+import FFT from 'fft.js';
+
 export interface STFTConfig {
   n_fft: number;       // FFT size (default: 2048)
   hop_length: number;  // Hop size (default: 512)
@@ -132,8 +134,8 @@ export function stft(
       frameBuffer[i] = 0;
     }
     
-    // Perform FFT (simplified - in production use a proper FFT library)
-    const frameResult = simpleFFT(frameBuffer, cfg.onesided);
+    // Perform FFT using optimized fft.js library
+    const frameResult = optimizedFFT(frameBuffer, cfg.onesided);
     
     // Store results
     for (let k = 0; k < freqBins; k++) {
@@ -155,28 +157,32 @@ export function stft(
 }
 
 /**
- * Simplified FFT implementation
- * Note: In production, use a proper FFT library like fft.js, dsp.js, or WebAssembly-compiled FFT
+ * Optimized FFT implementation using fft.js
+ * Replaces the previous simplified DFT with production-ready FFT
  */
-function simpleFFT(input: Float32Array, onesided: boolean): Complex {
+function optimizedFFT(input: Float32Array, onesided: boolean): Complex {
   const N = input.length;
+  const fft = new FFT(N);
+  
+  // Create input array for fft.js (interleaved real/imag)
+  const fftInput = new Array(N * 2);
+  for (let i = 0; i < N; i++) {
+    fftInput[i * 2] = input[i];
+    fftInput[i * 2 + 1] = 0; // Imaginary part is 0 for real input
+  }
+  
+  // Perform FFT
+  const fftOutput = fft.createComplexArray();
+  fft.transform(fftOutput, fftInput);
+  
+  // Extract results
   const size = onesided ? Math.floor(N / 2) + 1 : N;
   const real = new Float32Array(size);
   const imag = new Float32Array(size);
   
-  // Direct DFT (slow but simple for demo)
   for (let k = 0; k < size; k++) {
-    let sumReal = 0;
-    let sumImag = 0;
-    
-    for (let n = 0; n < N; n++) {
-      const angle = (-2 * Math.PI * k * n) / N;
-      sumReal += input[n] * Math.cos(angle);
-      sumImag += input[n] * Math.sin(angle);
-    }
-    
-    real[k] = sumReal;
-    imag[k] = sumImag;
+    real[k] = fftOutput[k * 2];
+    imag[k] = fftOutput[k * 2 + 1];
   }
   
   return { real, imag };
@@ -218,8 +224,8 @@ export function istft(
       frameImag[k] = spectrogram.imag[k * numFrames + frame];
     }
     
-    // Inverse FFT
-    const timeFrame = simpleIFFT({ real: frameReal, imag: frameImag }, cfg.n_fft, cfg.onesided);
+    // Inverse FFT using optimized fft.js library
+    const timeFrame = optimizedIFFT({ real: frameReal, imag: frameImag }, cfg.n_fft, cfg.onesided);
     
     // Overlap-add with window
     for (let i = 0; i < cfg.win_length && offset + i < output.length; i++) {
@@ -245,10 +251,11 @@ export function istft(
 }
 
 /**
- * Simplified inverse FFT
+ * Optimized inverse FFT using fft.js
+ * Replaces the previous simplified iDFT with production-ready iFFT
  */
-function simpleIFFT(spectrum: Complex, n_fft: number, onesided: boolean): Float32Array {
-  const output = new Float32Array(n_fft);
+function optimizedIFFT(spectrum: Complex, n_fft: number, onesided: boolean): Float32Array {
+  const fft = new FFT(n_fft);
   const size = spectrum.real.length;
   
   // Reconstruct full spectrum if one-sided
@@ -275,16 +282,21 @@ function simpleIFFT(spectrum: Complex, n_fft: number, onesided: boolean): Float3
     fullImag = spectrum.imag;
   }
   
-  // Inverse DFT
-  for (let n = 0; n < n_fft; n++) {
-    let sum = 0;
-    
-    for (let k = 0; k < n_fft; k++) {
-      const angle = (2 * Math.PI * k * n) / n_fft;
-      sum += fullReal[k] * Math.cos(angle) - fullImag[k] * Math.sin(angle);
-    }
-    
-    output[n] = sum / n_fft;
+  // Create input array for fft.js (interleaved real/imag)
+  const fftInput = new Array(n_fft * 2);
+  for (let i = 0; i < n_fft; i++) {
+    fftInput[i * 2] = fullReal[i];
+    fftInput[i * 2 + 1] = fullImag[i];
+  }
+  
+  // Perform inverse FFT
+  const fftOutput = fft.createComplexArray();
+  fft.inverseTransform(fftOutput, fftInput);
+  
+  // Extract real part
+  const output = new Float32Array(n_fft);
+  for (let i = 0; i < n_fft; i++) {
+    output[i] = fftOutput[i * 2];
   }
   
   return output;

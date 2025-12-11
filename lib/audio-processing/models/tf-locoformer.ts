@@ -396,6 +396,37 @@ class TFLocoformerBlock {
     }
     return output;
   }
+
+  /**
+   * Load pretrained weights into this block
+   */
+  loadWeights(weights: any): void {
+    // Load time attention weights
+    if (weights.timeAttention) {
+      this.timeAttention.loadWeights(weights.timeAttention);
+    }
+    
+    // Load frequency attention weights
+    if (weights.freqAttention) {
+      this.freqAttention.loadWeights(weights.freqAttention);
+    }
+    
+    // Load normalization weights
+    if (weights.norm1) {
+      this.norm1.loadWeights(weights.norm1);
+    }
+    if (weights.norm2) {
+      this.norm2.loadWeights(weights.norm2);
+    }
+    if (weights.norm3) {
+      this.norm3.loadWeights(weights.norm3);
+    }
+    
+    // Load ConvSwiGLU weights
+    if (weights.convSwiGLU) {
+      this.convSwiGLU.loadWeights(weights.convSwiGLU);
+    }
+  }
 }
 
 /**
@@ -448,5 +479,42 @@ export class TFLocoformer {
 
   getConfig(): TFLocoformerConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Load pretrained weights into the model
+   * @param weights - ModelWeights object from weight loader
+   */
+  loadWeights(weights: any): void {
+    console.log('Loading pretrained weights into TF-Locoformer model...');
+    
+    try {
+      // Load input projection weights
+      if (weights.weights.inputProj) {
+        this.inputProj.loadWeights(
+          weights.weights.inputProj.weight,
+          weights.weights.inputProj.bias
+        );
+      }
+      
+      // Load block weights using public method
+      for (let i = 0; i < this.blocks.length && i < weights.weights.blocks.length; i++) {
+        const blockWeights = weights.weights.blocks[i];
+        this.blocks[i].loadWeights(blockWeights);
+      }
+      
+      // Load output projection weights
+      if (weights.weights.outputProj) {
+        this.outputProj.loadWeights(
+          weights.weights.outputProj.weight,
+          weights.weights.outputProj.bias
+        );
+      }
+      
+      console.log('Weights loaded successfully');
+    } catch (error) {
+      console.error('Error loading weights:', error);
+      throw new Error(`Failed to load weights: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }
