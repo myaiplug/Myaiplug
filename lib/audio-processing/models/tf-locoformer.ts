@@ -449,4 +449,66 @@ export class TFLocoformer {
   getConfig(): TFLocoformerConfig {
     return { ...this.config };
   }
+
+  /**
+   * Load pretrained weights into the model
+   * @param weights - ModelWeights object from weight loader
+   */
+  loadWeights(weights: any): void {
+    console.log('Loading pretrained weights into TF-Locoformer model...');
+    
+    try {
+      // Load input projection weights
+      if (weights.weights.inputProj) {
+        this.inputProj.loadWeights(
+          weights.weights.inputProj.weight,
+          weights.weights.inputProj.bias
+        );
+      }
+      
+      // Load block weights
+      for (let i = 0; i < this.blocks.length && i < weights.weights.blocks.length; i++) {
+        const blockWeights = weights.weights.blocks[i];
+        const block = this.blocks[i] as any; // Cast to access private members
+        
+        // Load attention weights (simplified - actual implementation depends on block structure)
+        if (blockWeights.timeAttention && block.timeAttention) {
+          block.timeAttention.loadWeights(blockWeights.timeAttention);
+        }
+        
+        if (blockWeights.freqAttention && block.freqAttention) {
+          block.freqAttention.loadWeights(blockWeights.freqAttention);
+        }
+        
+        // Load normalization weights
+        if (blockWeights.norm1 && block.norm1) {
+          block.norm1.loadWeights(blockWeights.norm1);
+        }
+        if (blockWeights.norm2 && block.norm2) {
+          block.norm2.loadWeights(blockWeights.norm2);
+        }
+        if (blockWeights.norm3 && block.norm3) {
+          block.norm3.loadWeights(blockWeights.norm3);
+        }
+        
+        // Load ConvSwiGLU weights
+        if (blockWeights.convSwiGLU && block.convSwiGLU) {
+          block.convSwiGLU.loadWeights(blockWeights.convSwiGLU);
+        }
+      }
+      
+      // Load output projection weights
+      if (weights.weights.outputProj) {
+        this.outputProj.loadWeights(
+          weights.weights.outputProj.weight,
+          weights.weights.outputProj.bias
+        );
+      }
+      
+      console.log('Weights loaded successfully');
+    } catch (error) {
+      console.error('Error loading weights:', error);
+      throw new Error(`Failed to load weights: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }

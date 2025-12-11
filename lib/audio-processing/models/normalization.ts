@@ -93,13 +93,25 @@ export class RMSGroupNorm {
   /**
    * Load learned parameters
    */
-  loadWeights(gamma: Float32Array, beta: Float32Array) {
-    if (gamma.length !== this.config.numChannels || beta.length !== this.config.numChannels) {
+  loadWeights(weights: { weight?: Float32Array; bias?: Float32Array } | Float32Array, beta?: Float32Array) {
+    // Support both object and legacy format
+    let gamma: Float32Array;
+    let betaArray: Float32Array;
+    
+    if (weights instanceof Float32Array) {
+      gamma = weights;
+      betaArray = beta || new Float32Array(this.config.numChannels).fill(0);
+    } else {
+      gamma = weights.weight || new Float32Array(this.config.numChannels).fill(1);
+      betaArray = weights.bias || new Float32Array(this.config.numChannels).fill(0);
+    }
+    
+    if (gamma.length !== this.config.numChannels || betaArray.length !== this.config.numChannels) {
       throw new Error('Weight dimensions must match number of channels');
     }
     
     this.gamma = new Float32Array(gamma);
-    this.beta = new Float32Array(beta);
+    this.beta = new Float32Array(betaArray);
   }
 }
 
