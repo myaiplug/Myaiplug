@@ -33,5 +33,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# TF-Locoformer pretrained weights (binary files - not tracked in git)
+lib/audio-processing/weights/*.bin
+lib/audio-processing/weights/*.pt
+lib/audio-processing/weights/*.pth
+lib/audio-processing/weights/*.onnx
+
+# Keep the weights directory structure
+!lib/audio-processing/weights/.gitkeep
+
 # legacy files
 _legacy/
