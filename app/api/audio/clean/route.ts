@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
-import { verifyMembership } from '@/lib/services/verifyMembership';
-import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
-import { countUsage } from '@/lib/services/logUsage';
+import { authorizeAndConsume } from '@/lib/services/entitlements';
+import { getOptionalUserId } from '@/lib/services/auth';
 
 /**
  * POST /api/audio/clean
  * Cleans audio for HalfScrew pre-FX processing
- * Removes noise and artifacts while preserving the main signal
+ * Platform-wide entitlement system with capability-based authorization
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - userId: User ID (required for membership checking)
- * - tier: 'free' | 'pro' (optional, will be determined by membership)
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
+ * 
+ * Authentication via Authorization header (Supabase Auth)
  */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const userId = formData.get('userId') as string;
-    const requestedTier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
 
     if (!audioFile) {
@@ -31,45 +28,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For demo purposes, allow operation without userId but with limited functionality
+    // Resolve userId from Supabase Auth
+    const userId = await getOptionalUserId(request);
+
+    // Authorization check
+    let authResult = null;
     let tier: 'free' | 'pro' = 'free';
-    let membershipInfo = null;
 
     if (userId) {
-      // Check membership and usage limits
-      const membershipCheck = await checkMembershipAndUsage(userId, 'clean_audio', 'cleanPerDay');
-      
-      if (!membershipCheck.allowed) {
-        return createMembershipErrorResponse(
-          membershipCheck.error || 'Membership limit exceeded',
-          membershipCheck.remainingUsage || 0
+      authResult = await authorizeAndConsume({
+        userId,
+        capabilityKey: 'audio_clean',
+        usageAmount: 1,
+      });
+
+      if (!authResult.allowed) {
+        return NextResponse.json(
+          {
+            error: authResult.error,
+            tier: authResult.tier,
+            remainingUsage: authResult.remainingUsage,
+            upgradeUrl: authResult.upgradeUrl,
+            capabilityName: authResult.capabilityName,
+          },
+          { status: 429 }
         );
       }
 
-      membershipInfo = membershipCheck.membership;
-      
-      // Determine tier based on membership
-      if (membershipInfo.tier === 'pro' || membershipInfo.tier === 'vip') {
-        tier = 'pro';
-      }
-    } else {
-      // Allow operation without userId for backward compatibility
-      tier = requestedTier as 'free' | 'pro';
-    }
-
-    // Validate tier
-    if (tier !== 'free' && tier !== 'pro') {
-      return NextResponse.json(
-        { error: 'Invalid tier. Must be "free" or "pro"' },
-        { status: 400 }
-      );
+      tier = authResult.tier === 'free' ? 'free' : 'pro';
     }
 
     // Validate file type
     const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
+    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
+    
+    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(validExtensions)) {
+      const fileExt = audioFile.name.split('.').pop()?.toLowerCase() || 'unknown';
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
+        { 
+          error: 'Unsupported audio format',
+          details: `The file format '.${fileExt}' is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
+          supportedFormats: ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'webm'],
+          detectedFormat: fileExt,
+        },
         { status: 400 }
       );
     }
@@ -77,13 +78,20 @@ export async function POST(request: NextRequest) {
     // Validate file size (100MB max)
     const maxSize = 100 * 1024 * 1024;
     if (audioFile.size > maxSize) {
+      const sizeMB = (audioFile.size / (1024 * 1024)).toFixed(2);
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 100MB' },
+        { 
+          error: 'File too large',
+          details: `The file size (${sizeMB} MB) exceeds the maximum allowed size of 100 MB.`,
+          fileSize: audioFile.size,
+          maxSize,
+          sizeMB: parseFloat(sizeMB),
+        },
         { status: 400 }
       );
     }
 
-    console.log(`Processing audio cleaning request: ${audioFile.name}, tier: ${tier}`);
+    console.log(`Processing audio cleaning: ${audioFile.name}, tier: ${tier}`);
 
     // Initialize device manager
     await initializeDeviceManager();
@@ -95,8 +103,7 @@ export async function POST(request: NextRequest) {
     // Read audio file
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // NOTE: Phase 1 stub - create test audio data
-    // Production: decode properly using AudioContext.decodeAudioData()
+    // NOTE: Phase stub - create test audio data
     const dummyLength = 44100 * 3;
     const audioData = new Float32Array(dummyLength);
     for (let i = 0; i < audioData.length; i++) {
@@ -117,15 +124,6 @@ export async function POST(request: NextRequest) {
     // Get device info
     const deviceInfo = engine.getDeviceInfo();
 
-    // Log successful usage if userId provided
-    if (userId) {
-      logSuccessfulUsage(userId, 'clean_audio', '/api/audio/clean', {
-        tier,
-        format,
-        processingTime,
-      });
-    }
-
     return NextResponse.json({
       success: true,
       jobId: `clean_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -134,7 +132,6 @@ export async function POST(request: NextRequest) {
         length: cleanedAudio.length,
         duration: cleanedAudio.length / 44100,
         format,
-        // In production, encode to requested format and provide download URL
         filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_clean.${format}`,
         available: true,
       },
@@ -147,21 +144,33 @@ export async function POST(request: NextRequest) {
         current: deviceInfo.current,
         capability: deviceInfo.capability,
       },
-      membership: membershipInfo ? {
-        tier: membershipInfo.tier,
-        remainingUsage: userId ? (membershipInfo.limits.cleanPerDay - countUsage(userId, 'clean_audio')) : undefined,
+      entitlement: authResult ? {
+        tier: authResult.tier,
+        remainingUsage: authResult.remainingUsage,
+        allowAsync: authResult.allowAsync,
       } : undefined,
       message: 'Audio cleaned successfully for HalfScrew pre-FX',
     });
 
   } catch (error) {
     console.error('Cleaning error:', error);
+    
+    let errorMessage = 'Failed to clean audio';
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    let statusCode = 500;
+
+    if (error instanceof Error && error.message.includes('Authentication required')) {
+      errorMessage = 'Authentication required';
+      errorDetails = 'Please provide valid authentication credentials.';
+      statusCode = 401;
+    }
+
     return NextResponse.json(
       { 
-        error: 'Failed to clean audio',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage,
+        details: errorDetails,
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -176,10 +185,9 @@ export async function GET() {
     purpose: 'Removes noise and artifacts while preserving the main signal',
     method: 'POST',
     contentType: 'multipart/form-data',
+    authentication: 'Authorization: Bearer <supabase_token> (optional)',
     parameters: {
       audio: 'Audio file (required)',
-      userId: 'User ID (optional, required for membership enforcement)',
-      tier: '"free" | "pro" (optional, determined by membership if userId provided)',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
     },
     limits: {
@@ -202,5 +210,6 @@ export async function GET() {
       'Artifact removal',
       'Signal cleanup before time-stretching',
     ],
+    entitlementSystem: 'Platform-wide capability-based authorization',
   });
 }

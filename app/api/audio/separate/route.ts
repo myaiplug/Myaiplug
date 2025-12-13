@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
-import { verifyMembership } from '@/lib/services/verifyMembership';
-import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
-import { countUsage } from '@/lib/services/logUsage';
+import { authorizeAndConsume } from '@/lib/services/entitlements';
+import { getOptionalUserId } from '@/lib/services/auth';
 
 /**
  * POST /api/audio/separate
  * Separates audio into stems using TF-Locoformer
+ * Platform-wide entitlement system with capability-based authorization
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - userId: User ID (required for membership checking)
- * - tier: 'free' | 'pro' (optional, will be determined by membership)
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  * - normalize: boolean (default: true)
  * - debug: boolean (default: false) - Enable detailed benchmark logging
+ * 
+ * Authentication via Authorization header (Supabase Auth)
  */
 export async function POST(request: NextRequest) {
   const benchmarks: Record<string, number> = {};
@@ -24,8 +24,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const userId = formData.get('userId') as string;
-    const requestedTier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
     const normalize = (formData.get('normalize') as string) !== 'false';
     const debug = (formData.get('debug') as string) === 'true';
@@ -39,40 +37,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For demo purposes, allow operation without userId but with limited functionality
-    let tier: 'free' | 'pro' = 'free';
-    let membershipInfo = null;
+    // Resolve userId from Supabase Auth (server-side)
+    // For backward compatibility, also check form data
+    const authStart = Date.now();
+    const userId = await getOptionalUserId(request);
+    benchmarks.authResolution = Date.now() - authStart;
 
-    const membershipCheckStart = Date.now();
+    // Authorization and capability check
+    let authResult = null;
+    let tier: 'free' | 'pro' = 'free';
+    let modelVariant = '2-stem';
+
     if (userId) {
-      // Check membership and usage limits
-      const membershipCheck = await checkMembershipAndUsage(userId, 'stem_split', 'stemSplitPerDay');
-      
-      if (!membershipCheck.allowed) {
-        return createMembershipErrorResponse(
-          membershipCheck.error || 'Membership limit exceeded',
-          membershipCheck.remainingUsage || 0
+      const authzStart = Date.now();
+      authResult = await authorizeAndConsume({
+        userId,
+        capabilityKey: 'stem_split',
+        usageAmount: 1, // 1 job
+      });
+      benchmarks.authorization = Date.now() - authzStart;
+
+      if (!authResult.allowed) {
+        return NextResponse.json(
+          {
+            error: authResult.error,
+            tier: authResult.tier,
+            remainingUsage: authResult.remainingUsage,
+            upgradeUrl: authResult.upgradeUrl,
+            capabilityName: authResult.capabilityName,
+          },
+          { status: 429 }
         );
       }
 
-      membershipInfo = membershipCheck.membership;
-      
-      // Determine tier based on membership and permissions
-      if (membershipInfo.permissions.fiveStemModel) {
-        tier = 'pro';
-      }
+      // Use tier and model variant from authorization
+      tier = authResult.tier === 'free' ? 'free' : 'pro';
+      modelVariant = authResult.modelVariant || '2-stem';
     } else {
-      // Allow operation without userId for backward compatibility, but use requested tier
-      tier = requestedTier as 'free' | 'pro';
-    }
-    benchmarks.membershipCheck = Date.now() - membershipCheckStart;
-
-    // Validate tier
-    if (tier !== 'free' && tier !== 'pro') {
-      return NextResponse.json(
-        { error: 'Invalid tier. Must be "free" or "pro"' },
-        { status: 400 }
-      );
+      // No userId - allow operation with free tier for backward compatibility
+      // In production, you may want to require authentication
+      console.warn('No userId provided - defaulting to free tier');
     }
 
     // Validate file type with detailed error messages
@@ -108,40 +112,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Estimate audio duration and check membership limits
-    const estimatedDuration = estimateAudioDuration(audioFile);
-    if (membershipInfo && estimatedDuration > membershipInfo.limits.maxFileDuration) {
-      const maxMinutes = Math.floor(membershipInfo.limits.maxFileDuration / 60);
-      const estimatedMinutes = Math.floor(estimatedDuration / 60);
-      return NextResponse.json(
-        {
-          error: 'File duration exceeds tier limit',
-          details: `The estimated audio duration (${estimatedMinutes} minutes) exceeds the ${membershipInfo.tier.toUpperCase()} tier limit of ${maxMinutes} minutes. Please upgrade your membership or use a shorter audio file.`,
-          estimatedDuration,
-          maxDuration: membershipInfo.limits.maxFileDuration,
-          tier: membershipInfo.tier,
-          upgradeUrl: '/pricing',
-        },
-        { status: 400 }
-      );
-    }
-
-    console.log(`Processing audio separation request: ${audioFile.name}, tier: ${tier}, duration: ~${estimatedDuration}s`);
+    console.log(`Processing stem separation: ${audioFile.name}, tier: ${tier}, model: ${modelVariant}`);
 
     // Initialize device manager
     const deviceInitStart = Date.now();
     await initializeDeviceManager();
     benchmarks.deviceInit = Date.now() - deviceInitStart;
 
-    // Create inference engine
+    // Create inference engine based on model variant
     const engineInitStart = Date.now();
-    const engine = createInferenceEngine(tier as 'free' | 'pro');
+    const engine = createInferenceEngine(tier);
     await engine.initialize();
     benchmarks.engineInit = Date.now() - engineInitStart;
 
+    // Decode audio file
     // NOTE: In production, decode audio file properly using Web Audio API or audio libraries
-    // For Phase 3, this is a stub that assumes the file contains raw PCM data
-    // Real implementation would use: AudioContext.decodeAudioData() or libraries like 'audio-decode'
     const decodeStart = Date.now();
     const arrayBuffer = await audioFile.arrayBuffer();
     
@@ -176,22 +161,10 @@ export async function POST(request: NextRequest) {
         name: stemName,
         length: stemAudio.length,
         duration: stemAudio.length / result.sampleRate,
-        // In production, encode to requested format and provide download URL
         // File naming: originalFilename_stemsplit_stemName.format
         filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_stemsplit_${stemName}.${format}`,
         available: true,
       };
-    }
-
-    // Log successful usage if userId provided
-    if (userId) {
-      logSuccessfulUsage(userId, 'stem_split', '/api/audio/separate', {
-        tier,
-        format,
-        duration: result.duration,
-        processingTime,
-        stemCount: Object.keys(stems).length,
-      });
     }
 
     // Log benchmark details if debug mode is enabled
@@ -201,7 +174,8 @@ export async function POST(request: NextRequest) {
         total: processingTime,
         breakdown: {
           requestParsing: `${benchmarks.requestParsing}ms`,
-          membershipCheck: `${benchmarks.membershipCheck}ms`,
+          authResolution: `${benchmarks.authResolution || 0}ms`,
+          authorization: `${benchmarks.authorization || 0}ms`,
           deviceInit: `${benchmarks.deviceInit}ms`,
           engineInit: `${benchmarks.engineInit}ms`,
           audioDecode: `${benchmarks.audioDecode}ms`,
@@ -214,6 +188,7 @@ export async function POST(request: NextRequest) {
       success: true,
       jobId: `sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       tier,
+      modelVariant,
       stems,
       processing: {
         duration: result.duration,
@@ -226,9 +201,10 @@ export async function POST(request: NextRequest) {
         current: deviceInfo.current,
         capability: deviceInfo.capability,
       },
-      membership: membershipInfo ? {
-        tier: membershipInfo.tier,
-        remainingUsage: userId ? (membershipInfo.limits.stemSplitPerDay - countUsage(userId, 'stem_split')) : undefined,
+      entitlement: authResult ? {
+        tier: authResult.tier,
+        remainingUsage: authResult.remainingUsage,
+        allowAsync: authResult.allowAsync,
       } : undefined,
       message: `Audio separated into ${Object.keys(stems).length} stems`,
     });
@@ -257,6 +233,10 @@ export async function POST(request: NextRequest) {
       } else if (error.message.includes('not initialized')) {
         errorMessage = 'Inference engine not initialized';
         errorDetails = 'The audio processing engine failed to initialize. Please try again.';
+      } else if (error.message.includes('Authentication required')) {
+        errorMessage = 'Authentication required';
+        errorDetails = 'Please provide valid authentication credentials.';
+        statusCode = 401;
       }
     }
 
@@ -272,33 +252,6 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Estimate audio duration from file size
- * This is a rough estimation based on typical bitrates
- */
-function estimateAudioDuration(file: File): number {
-  const fileName = file.name.toLowerCase();
-  const fileSize = file.size;
-
-  // Estimate based on format
-  // MP3: ~128 kbps average, WAV: ~1411 kbps (44.1kHz stereo), FLAC: ~800 kbps
-  let estimatedBitrate = 128000; // Default to MP3 bitrate
-
-  if (fileName.endsWith('.wav')) {
-    estimatedBitrate = 1411000; // 44.1kHz stereo uncompressed
-  } else if (fileName.endsWith('.flac')) {
-    estimatedBitrate = 800000; // FLAC average
-  } else if (fileName.endsWith('.m4a')) {
-    estimatedBitrate = 256000; // M4A/AAC typical
-  } else if (fileName.endsWith('.ogg') || fileName.endsWith('.webm')) {
-    estimatedBitrate = 192000; // Ogg Vorbis typical
-  }
-
-  // Duration in seconds = (fileSize in bytes * 8) / bitrate
-  const durationSeconds = (fileSize * 8) / estimatedBitrate;
-  return Math.ceil(durationSeconds);
-}
-
-/**
  * GET endpoint for API information
  */
 export async function GET() {
@@ -307,30 +260,34 @@ export async function GET() {
     description: 'Separate audio into stems using TF-Locoformer',
     method: 'POST',
     contentType: 'multipart/form-data',
+    authentication: 'Authorization: Bearer <supabase_token> (optional for backward compatibility)',
     parameters: {
       audio: 'Audio file (required)',
-      userId: 'User ID (optional, required for membership enforcement)',
-      tier: '"free" | "pro" (optional, determined by membership if userId provided)',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
       normalize: 'boolean (default: true)',
+      debug: 'boolean (default: false) - Enable benchmark logging',
     },
     tiers: {
       free: {
         stems: ['vocals', 'instrumental'],
+        modelVariant: '2-stem',
         maxDuration: 180, // 3 minutes
         dailyLimit: 5,
       },
       pro: {
         stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
+        modelVariant: '5-stem',
         maxDuration: 600, // 10 minutes
         dailyLimit: 50,
       },
       vip: {
         stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
+        modelVariant: '5-stem',
         maxDuration: 3600, // 1 hour
         dailyLimit: 'unlimited',
       },
     },
     outputFileNaming: '{originalFilename}_stemsplit_{stemName}.{format}',
+    entitlementSystem: 'Platform-wide capability-based authorization',
   });
 }
