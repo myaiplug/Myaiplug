@@ -17,6 +17,8 @@ import CreatorProfilePreview from '@/components/CreatorProfilePreview';
 import BlogSection from '@/components/BlogSection';
 import FAQ from '@/components/FAQ';
 import CTA from '@/sections/CTA';
+import FeaturedShowcase from '@/components/FeaturedShowcase';
+import MiniStudio from '@/components/MiniStudio';
 import Link from 'next/link';
 import Script from 'next/script';
 
@@ -129,9 +131,12 @@ export default function Home() {
         <Features />
         {/* AI Playground Section */}
         <AIPlayground />
+        {/* Audio Demo Section */}
+        <MiniStudio />
         <Testimonials />
         <ResourceVault />
         <Pricing />
+        <FeaturedShowcase />
         <LeaderboardTeaser />
         <CreatorProfilePreview />
         <BlogSection />

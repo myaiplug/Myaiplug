@@ -5,6 +5,7 @@ export type UserTier = 'free' | 'pro' | 'studio';
 export type JobType = 
   | 'audio_basic'
   | 'audio_pro'
+  | 'audio_processing'
   | 'reels'
   | 'stem_split'
   | 'cleanup'

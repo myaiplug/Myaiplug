@@ -4,6 +4,8 @@ import { generateLeaderboard } from '@/lib/services/leaderboardService';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import type { LeaderboardType, LeaderboardPeriod } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Get client IP for rate limiting
