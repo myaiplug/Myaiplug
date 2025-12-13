@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
+import { verifyMembership } from '@/lib/services/verifyMembership';
+import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
 
 /**
  * POST /api/audio/clean
@@ -9,14 +11,16 @@ import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - tier: 'free' | 'pro' (default: 'free')
+ * - userId: User ID (required for membership checking)
+ * - tier: 'free' | 'pro' (optional, will be determined by membership)
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const tier = (formData.get('tier') as string) || 'free';
+    const userId = formData.get('userId') as string;
+    const requestedTier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
 
     if (!audioFile) {
@@ -24,6 +28,32 @@ export async function POST(request: NextRequest) {
         { error: 'No audio file provided' },
         { status: 400 }
       );
+    }
+
+    // For demo purposes, allow operation without userId but with limited functionality
+    let tier: 'free' | 'pro' = 'free';
+    let membershipInfo = null;
+
+    if (userId) {
+      // Check membership and usage limits
+      const membershipCheck = await checkMembershipAndUsage(userId, 'clean_audio', 'cleanPerDay');
+      
+      if (!membershipCheck.allowed) {
+        return createMembershipErrorResponse(
+          membershipCheck.error || 'Membership limit exceeded',
+          membershipCheck.remainingUsage || 0
+        );
+      }
+
+      membershipInfo = membershipCheck.membership;
+      
+      // Determine tier based on membership
+      if (membershipInfo.tier === 'pro' || membershipInfo.tier === 'vip') {
+        tier = 'pro';
+      }
+    } else {
+      // Allow operation without userId for backward compatibility
+      tier = requestedTier as 'free' | 'pro';
     }
 
     // Validate tier
@@ -86,6 +116,15 @@ export async function POST(request: NextRequest) {
     // Get device info
     const deviceInfo = engine.getDeviceInfo();
 
+    // Log successful usage if userId provided
+    if (userId) {
+      logSuccessfulUsage(userId, 'clean_audio', '/api/audio/clean', {
+        tier,
+        format,
+        processingTime,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       jobId: `clean_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -95,6 +134,7 @@ export async function POST(request: NextRequest) {
         duration: cleanedAudio.length / 44100,
         format,
         // In production, encode to requested format and provide download URL
+        filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_clean.${format}`,
         available: true,
       },
       processing: {
@@ -106,6 +146,12 @@ export async function POST(request: NextRequest) {
         current: deviceInfo.current,
         capability: deviceInfo.capability,
       },
+      membership: membershipInfo ? {
+        tier: membershipInfo.tier,
+        remainingUsage: userId ? await import('@/lib/services/logUsage').then(m => 
+          membershipInfo.limits.cleanPerDay - m.countUsage(userId, 'clean_audio')
+        ) : undefined,
+      } : undefined,
       message: 'Audio cleaned successfully for HalfScrew pre-FX',
     });
 
@@ -133,8 +179,23 @@ export async function GET() {
     contentType: 'multipart/form-data',
     parameters: {
       audio: 'Audio file (required)',
-      tier: '"free" | "pro" (default: "free")',
+      userId: 'User ID (optional, required for membership enforcement)',
+      tier: '"free" | "pro" (optional, determined by membership if userId provided)',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
+    },
+    limits: {
+      free: {
+        dailyLimit: 10,
+        maxDuration: 180, // 3 minutes
+      },
+      pro: {
+        dailyLimit: 100,
+        maxDuration: 600, // 10 minutes
+      },
+      vip: {
+        dailyLimit: 'unlimited',
+        maxDuration: 3600, // 1 hour
+      },
     },
     use_cases: [
       'Pre-processing for HalfScrew effects',

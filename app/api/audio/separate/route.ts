@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
+import { verifyMembership } from '@/lib/services/verifyMembership';
+import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
 
 /**
  * POST /api/audio/separate
@@ -8,7 +10,8 @@ import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - tier: 'free' | 'pro' (default: 'free')
+ * - userId: User ID (required for membership checking)
+ * - tier: 'free' | 'pro' (optional, will be determined by membership)
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  * - normalize: boolean (default: true)
  */
@@ -16,7 +19,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const tier = (formData.get('tier') as string) || 'free';
+    const userId = formData.get('userId') as string;
+    const requestedTier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
     const normalize = (formData.get('normalize') as string) !== 'false';
 
@@ -25,6 +29,32 @@ export async function POST(request: NextRequest) {
         { error: 'No audio file provided' },
         { status: 400 }
       );
+    }
+
+    // For demo purposes, allow operation without userId but with limited functionality
+    let tier: 'free' | 'pro' = 'free';
+    let membershipInfo = null;
+
+    if (userId) {
+      // Check membership and usage limits
+      const membershipCheck = await checkMembershipAndUsage(userId, 'stem_split', 'stemSplitPerDay');
+      
+      if (!membershipCheck.allowed) {
+        return createMembershipErrorResponse(
+          membershipCheck.error || 'Membership limit exceeded',
+          membershipCheck.remainingUsage || 0
+        );
+      }
+
+      membershipInfo = membershipCheck.membership;
+      
+      // Determine tier based on membership and permissions
+      if (membershipInfo.permissions.fiveStemModel) {
+        tier = 'pro';
+      }
+    } else {
+      // Allow operation without userId for backward compatibility, but use requested tier
+      tier = requestedTier as 'free' | 'pro';
     }
 
     // Validate tier
@@ -97,8 +127,21 @@ export async function POST(request: NextRequest) {
         length: stemAudio.length,
         duration: stemAudio.length / result.sampleRate,
         // In production, encode to requested format and provide download URL
+        // File naming: originalFilename_stemsplit_stemName.format
+        filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_stemsplit_${stemName}.${format}`,
         available: true,
       };
+    }
+
+    // Log successful usage if userId provided
+    if (userId) {
+      logSuccessfulUsage(userId, 'stem_split', '/api/audio/separate', {
+        tier,
+        format,
+        duration: result.duration,
+        processingTime,
+        stemCount: Object.keys(stems).length,
+      });
     }
 
     return NextResponse.json({
@@ -116,6 +159,12 @@ export async function POST(request: NextRequest) {
         current: deviceInfo.current,
         capability: deviceInfo.capability,
       },
+      membership: membershipInfo ? {
+        tier: membershipInfo.tier,
+        remainingUsage: userId ? await import('@/lib/services/logUsage').then(m => 
+          membershipInfo.limits.stemSplitPerDay - m.countUsage(userId, 'stem_split')
+        ) : undefined,
+      } : undefined,
       message: `Audio separated into ${Object.keys(stems).length} stems`,
     });
 
@@ -142,7 +191,8 @@ export async function GET() {
     contentType: 'multipart/form-data',
     parameters: {
       audio: 'Audio file (required)',
-      tier: '"free" | "pro" (default: "free")',
+      userId: 'User ID (optional, required for membership enforcement)',
+      tier: '"free" | "pro" (optional, determined by membership if userId provided)',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
       normalize: 'boolean (default: true)',
     },
@@ -150,11 +200,19 @@ export async function GET() {
       free: {
         stems: ['vocals', 'instrumental'],
         maxDuration: 180, // 3 minutes
+        dailyLimit: 5,
       },
       pro: {
         stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
         maxDuration: 600, // 10 minutes
+        dailyLimit: 50,
+      },
+      vip: {
+        stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
+        maxDuration: 3600, // 1 hour
+        dailyLimit: 'unlimited',
       },
     },
+    outputFileNaming: '{originalFilename}_stemsplit_{stemName}.{format}',
   });
 }
