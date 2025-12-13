@@ -14,8 +14,12 @@ import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUs
  * - tier: 'free' | 'pro' (optional, will be determined by membership)
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  * - normalize: boolean (default: true)
+ * - debug: boolean (default: false) - Enable detailed benchmark logging
  */
 export async function POST(request: NextRequest) {
+  const benchmarks: Record<string, number> = {};
+  const overallStartTime = Date.now();
+  
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
@@ -23,6 +27,9 @@ export async function POST(request: NextRequest) {
     const requestedTier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
     const normalize = (formData.get('normalize') as string) !== 'false';
+    const debug = (formData.get('debug') as string) === 'true';
+
+    benchmarks.requestParsing = Date.now() - overallStartTime;
 
     if (!audioFile) {
       return NextResponse.json(
@@ -35,6 +42,7 @@ export async function POST(request: NextRequest) {
     let tier: 'free' | 'pro' = 'free';
     let membershipInfo = null;
 
+    const membershipCheckStart = Date.now();
     if (userId) {
       // Check membership and usage limits
       const membershipCheck = await checkMembershipAndUsage(userId, 'stem_split', 'stemSplitPerDay');
@@ -56,6 +64,7 @@ export async function POST(request: NextRequest) {
       // Allow operation without userId for backward compatibility, but use requested tier
       tier = requestedTier as 'free' | 'pro';
     }
+    benchmarks.membershipCheck = Date.now() - membershipCheckStart;
 
     // Validate tier
     if (tier !== 'free' && tier !== 'pro') {
@@ -65,36 +74,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type with detailed error messages
     const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
+    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
+    
+    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(validExtensions)) {
+      const fileExt = audioFile.name.split('.').pop()?.toLowerCase() || 'unknown';
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
+        { 
+          error: 'Unsupported audio format',
+          details: `The file format '.${fileExt}' is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
+          supportedFormats: ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'webm'],
+          detectedFormat: fileExt,
+        },
         { status: 400 }
       );
     }
 
-    // Validate file size (100MB max)
+    // Validate file size (100MB max) with detailed message
     const maxSize = 100 * 1024 * 1024;
     if (audioFile.size > maxSize) {
+      const sizeMB = (audioFile.size / (1024 * 1024)).toFixed(2);
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 100MB' },
+        { 
+          error: 'File too large',
+          details: `The file size (${sizeMB} MB) exceeds the maximum allowed size of 100 MB. Please compress your audio file or split it into smaller segments.`,
+          fileSize: audioFile.size,
+          maxSize,
+          sizeMB: parseFloat(sizeMB),
+        },
         { status: 400 }
       );
     }
 
-    console.log(`Processing audio separation request: ${audioFile.name}, tier: ${tier}`);
+    // Estimate audio duration and check membership limits
+    const estimatedDuration = estimateAudioDuration(audioFile);
+    if (membershipInfo && estimatedDuration > membershipInfo.limits.maxFileDuration) {
+      const maxMinutes = Math.floor(membershipInfo.limits.maxFileDuration / 60);
+      const estimatedMinutes = Math.floor(estimatedDuration / 60);
+      return NextResponse.json(
+        {
+          error: 'File duration exceeds tier limit',
+          details: `The estimated audio duration (${estimatedMinutes} minutes) exceeds the ${membershipInfo.tier.toUpperCase()} tier limit of ${maxMinutes} minutes. Please upgrade your membership or use a shorter audio file.`,
+          estimatedDuration,
+          maxDuration: membershipInfo.limits.maxFileDuration,
+          tier: membershipInfo.tier,
+          upgradeUrl: '/pricing',
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log(`Processing audio separation request: ${audioFile.name}, tier: ${tier}, duration: ~${estimatedDuration}s`);
 
     // Initialize device manager
+    const deviceInitStart = Date.now();
     await initializeDeviceManager();
+    benchmarks.deviceInit = Date.now() - deviceInitStart;
 
     // Create inference engine
+    const engineInitStart = Date.now();
     const engine = createInferenceEngine(tier as 'free' | 'pro');
     await engine.initialize();
+    benchmarks.engineInit = Date.now() - engineInitStart;
 
     // NOTE: In production, decode audio file properly using Web Audio API or audio libraries
-    // For Phase 1, this is a stub that assumes the file contains raw PCM data
+    // For Phase 3, this is a stub that assumes the file contains raw PCM data
     // Real implementation would use: AudioContext.decodeAudioData() or libraries like 'audio-decode'
+    const decodeStart = Date.now();
     const arrayBuffer = await audioFile.arrayBuffer();
     
     // Stub: Create dummy audio data for testing
@@ -104,17 +151,19 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < audioData.length; i++) {
       audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5; // 440 Hz test tone
     }
+    benchmarks.audioDecode = Date.now() - decodeStart;
 
     // Perform separation
-    const startTime = Date.now();
+    const separationStart = Date.now();
     const result = await engine.separate(audioData, {
       tier: tier as 'free' | 'pro',
       outputFormat: format as 'wav' | 'mp3' | 'flac',
       sampleRate: 44100,
       normalize,
     });
+    benchmarks.separation = Date.now() - separationStart;
 
-    const processingTime = Date.now() - startTime;
+    const processingTime = Date.now() - overallStartTime;
 
     // Get device info
     const deviceInfo = engine.getDeviceInfo();
@@ -144,6 +193,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Log benchmark details if debug mode is enabled
+    if (debug) {
+      console.log('Separation Benchmarks:', {
+        ...benchmarks,
+        total: processingTime,
+        breakdown: {
+          requestParsing: `${benchmarks.requestParsing}ms`,
+          membershipCheck: `${benchmarks.membershipCheck}ms`,
+          deviceInit: `${benchmarks.deviceInit}ms`,
+          engineInit: `${benchmarks.engineInit}ms`,
+          audioDecode: `${benchmarks.audioDecode}ms`,
+          separation: `${benchmarks.separation}ms`,
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       jobId: `sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -154,6 +219,7 @@ export async function POST(request: NextRequest) {
         processingTime,
         device: result.device,
         supportsRealtime: engine.supportsRealtime(),
+        benchmarks: debug ? benchmarks : undefined,
       },
       device: {
         current: deviceInfo.current,
@@ -170,14 +236,67 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Separation error:', error);
+    
+    // Provide detailed error messages based on error type
+    let errorMessage = 'Failed to separate audio';
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      // Handle specific error types
+      if (error.message.includes('decode')) {
+        errorMessage = 'Audio file decoding failed';
+        errorDetails = 'The audio file appears to be corrupted or in an unsupported format. Please try re-encoding your audio file or use a different format.';
+        statusCode = 400;
+      } else if (error.message.includes('memory') || error.message.includes('Memory')) {
+        errorMessage = 'Insufficient memory';
+        errorDetails = 'The audio file is too large to process with available memory. Please try a shorter file or reduce the sample rate.';
+        statusCode = 507;
+      } else if (error.message.includes('GPU') || error.message.includes('device')) {
+        errorMessage = 'Device processing error';
+        errorDetails = 'There was an issue with GPU/CPU processing. The system will retry with CPU processing.';
+      } else if (error.message.includes('not initialized')) {
+        errorMessage = 'Inference engine not initialized';
+        errorDetails = 'The audio processing engine failed to initialize. Please try again.';
+      }
+    }
+
     return NextResponse.json(
       { 
-        error: 'Failed to separate audio',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
+}
+
+/**
+ * Estimate audio duration from file size
+ * This is a rough estimation based on typical bitrates
+ */
+function estimateAudioDuration(file: File): number {
+  const fileName = file.name.toLowerCase();
+  const fileSize = file.size;
+
+  // Estimate based on format
+  // MP3: ~128 kbps average, WAV: ~1411 kbps (44.1kHz stereo), FLAC: ~800 kbps
+  let estimatedBitrate = 128000; // Default to MP3 bitrate
+
+  if (fileName.endsWith('.wav')) {
+    estimatedBitrate = 1411000; // 44.1kHz stereo uncompressed
+  } else if (fileName.endsWith('.flac')) {
+    estimatedBitrate = 800000; // FLAC average
+  } else if (fileName.endsWith('.m4a')) {
+    estimatedBitrate = 256000; // M4A/AAC typical
+  } else if (fileName.endsWith('.ogg') || fileName.endsWith('.webm')) {
+    estimatedBitrate = 192000; // Ogg Vorbis typical
+  }
+
+  // Duration in seconds = (fileSize in bytes * 8) / bitrate
+  const durationSeconds = (fileSize * 8) / estimatedBitrate;
+  return Math.ceil(durationSeconds);
 }
 
 /**
