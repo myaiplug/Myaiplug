@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMembership, generateLimitExceededMessage } from './verifyMembership';
-import { hasExceededLimit, logUsage } from './logUsage';
+import { hasExceededLimit, logUsage, countUsage } from './logUsage';
 
 export interface MembershipCheckResult {
   allowed: boolean;
@@ -43,7 +43,7 @@ export async function checkMembershipAndUsage(
   }
 
   // Calculate remaining usage
-  const currentUsage = await import('./logUsage').then(m => m.countUsage(userId, action));
+  const currentUsage = countUsage(userId, action);
   const remainingUsage = Math.max(0, limit - currentUsage);
 
   return {

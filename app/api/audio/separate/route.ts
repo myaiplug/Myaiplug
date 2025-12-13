@@ -3,6 +3,7 @@ import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
 import { verifyMembership } from '@/lib/services/verifyMembership';
 import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
+import { countUsage } from '@/lib/services/logUsage';
 
 /**
  * POST /api/audio/separate
@@ -227,9 +228,7 @@ export async function POST(request: NextRequest) {
       },
       membership: membershipInfo ? {
         tier: membershipInfo.tier,
-        remainingUsage: userId ? await import('@/lib/services/logUsage').then(m => 
-          membershipInfo.limits.stemSplitPerDay - m.countUsage(userId, 'stem_split')
-        ) : undefined,
+        remainingUsage: userId ? (membershipInfo.limits.stemSplitPerDay - countUsage(userId, 'stem_split')) : undefined,
       } : undefined,
       message: `Audio separated into ${Object.keys(stems).length} stems`,
     });

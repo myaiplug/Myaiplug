@@ -6,6 +6,9 @@
 import type { MembershipTier } from '../types';
 import { getUserById, getProfile } from './userService';
 
+// Constant for unlimited usage
+const UNLIMITED_USAGE = Number.MAX_SAFE_INTEGER;
+
 // Membership tier configurations
 const TIER_CONFIGS: Record<'free' | 'pro' | 'vip', MembershipTier> = {
   free: {
@@ -41,9 +44,9 @@ const TIER_CONFIGS: Record<'free' | 'pro' | 'vip', MembershipTier> = {
   vip: {
     tier: 'vip',
     limits: {
-      stemSplitPerDay: 999999, // Unlimited
-      halfScrewPerDay: 999999,
-      cleanPerDay: 999999,
+      stemSplitPerDay: UNLIMITED_USAGE,
+      halfScrewPerDay: UNLIMITED_USAGE,
+      cleanPerDay: UNLIMITED_USAGE,
       maxFileDuration: 3600, // 1 hour
       asyncJobQueue: true,
     },

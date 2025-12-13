@@ -3,6 +3,7 @@ import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
 import { verifyMembership } from '@/lib/services/verifyMembership';
 import { checkMembershipAndUsage, createMembershipErrorResponse, logSuccessfulUsage } from '@/lib/services/membershipMiddleware';
+import { countUsage } from '@/lib/services/logUsage';
 
 /**
  * POST /api/audio/clean
@@ -148,9 +149,7 @@ export async function POST(request: NextRequest) {
       },
       membership: membershipInfo ? {
         tier: membershipInfo.tier,
-        remainingUsage: userId ? await import('@/lib/services/logUsage').then(m => 
-          membershipInfo.limits.cleanPerDay - m.countUsage(userId, 'clean_audio')
-        ) : undefined,
+        remainingUsage: userId ? (membershipInfo.limits.cleanPerDay - countUsage(userId, 'clean_audio')) : undefined,
       } : undefined,
       message: 'Audio cleaned successfully for HalfScrew pre-FX',
     });
