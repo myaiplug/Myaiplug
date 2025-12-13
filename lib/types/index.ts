@@ -74,7 +74,8 @@ export type SubscriptionStatus =
   | 'incomplete' 
   | 'incomplete_expired' 
   | 'trialing' 
-  | 'unpaid';
+  | 'unpaid'
+  | 'paused';
 
 export interface Subscription {
   id: string;

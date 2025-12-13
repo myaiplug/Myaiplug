@@ -15,31 +15,12 @@ const stripe = env.stripeSecretKey ? new Stripe(env.stripeSecretKey, {
   apiVersion: '2024-12-18.acacia',
 }) : null;
 
-// Disable body parsing for webhook verification
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 /**
  * Read the raw body from the request
  */
-async function getRawBody(request: NextRequest): Promise<Buffer> {
-  const chunks: Uint8Array[] = [];
-  const reader = request.body?.getReader();
-  
-  if (!reader) {
-    throw new Error('No request body');
-  }
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-
-  return Buffer.concat(chunks);
+async function getRawBody(request: NextRequest): Promise<string> {
+  const text = await request.text();
+  return text;
 }
 
 /**
