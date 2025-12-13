@@ -1,5 +1,6 @@
 // Leaderboard ranking system
 import type { LeaderboardEntry, LeaderboardType, LeaderboardPeriod, Profile, Referral, Creation } from '../types';
+import { hasActiveSubscription } from './subscriptionService';
 
 export interface LeaderboardOptions {
   type: LeaderboardType;
@@ -78,6 +79,11 @@ async function generateTimeSavedLeaderboard(period: LeaderboardPeriod): Promise<
   for (const [userId, profile] of profilesStore.entries()) {
     // Skip users who opted out of leaderboards
     if (profile.privacyOptOut) {
+      continue;
+    }
+
+    // Only include users with active subscriptions (Pro tier or higher)
+    if (!hasActiveSubscription(userId)) {
       continue;
     }
 
