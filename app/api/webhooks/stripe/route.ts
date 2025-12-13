@@ -146,8 +146,15 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   // Update user tier
   syncUserTierWithSubscription(userId);
 
-  // Grant initial tokens
-  grantMonthlyProTokens(userId, subscription.id);
+  // Grant initial tokens with idempotency check
+  const grant = grantMonthlyProTokens(
+    userId, 
+    subscription.id,
+    new Date(subscription.current_period_end * 1000)
+  );
+  if (grant) {
+    console.log(`Granted ${grant.amount} tokens to user ${userId}`);
+  }
 
   console.log(`Subscription created for user ${userId}`);
 }
@@ -237,12 +244,16 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   // Unfreeze token usage if it was frozen
   unfreezeTokenUsage(subscription.userId);
 
-  // Grant monthly tokens (idempotent - check if already granted this period)
-  // In production, you'd check if tokens were already granted for this billing period
+  // Grant monthly tokens with idempotency check for renewals
   const isRenewal = invoice.billing_reason === 'subscription_cycle';
   if (isRenewal) {
-    grantMonthlyProTokens(subscription.userId, subscriptionId);
-    console.log(`Granted monthly tokens to user ${subscription.userId}`);
+    const periodEnd = invoice.period_end ? new Date(invoice.period_end * 1000) : undefined;
+    const grant = grantMonthlyProTokens(subscription.userId, subscriptionId, periodEnd);
+    if (grant) {
+      console.log(`Granted ${grant.amount} monthly tokens to user ${subscription.userId}`);
+    } else {
+      console.log(`Tokens already granted for this period for user ${subscription.userId}`);
+    }
   }
 
   console.log(`Payment succeeded for subscription ${subscriptionId}`);

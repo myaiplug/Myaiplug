@@ -82,7 +82,8 @@ async function generateTimeSavedLeaderboard(period: LeaderboardPeriod): Promise<
       continue;
     }
 
-    // Only include users with active subscriptions (Pro tier or higher)
+    // Only include users with active subscriptions
+    // (currently checks for active/trialing status)
     if (!hasActiveSubscription(userId)) {
       continue;
     }

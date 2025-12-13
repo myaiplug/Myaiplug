@@ -16,6 +16,10 @@ import {
   getTokenBalance,
   grantMonthlyProTokens,
   TOKEN_AMOUNTS,
+  deductTokens,
+  freezeTokenUsage,
+  unfreezeTokenUsage,
+  isTokenUsageFrozen,
 } from '../lib/services/tokenService';
 
 import {
@@ -70,7 +74,14 @@ async function testWebhookLogic() {
     console.log('\n6️⃣ Granting monthly Pro tokens...');
     const tokenGrant = grantMonthlyProTokens(user.user.id, subscription.id);
     const balance = getTokenBalance(user.user.id);
-    console.log(`✅ Tokens granted: ${tokenGrant.amount}, balance: ${balance}`);
+    console.log(`✅ Tokens granted: ${tokenGrant?.amount}, balance: ${balance}`);
+    
+    // Test 6b: Test idempotency - try granting again for same period
+    console.log('\n6️⃣b Testing idempotency - granting tokens again...');
+    const duplicateGrant = grantMonthlyProTokens(user.user.id, subscription.id);
+    const balanceAfterDuplicate = getTokenBalance(user.user.id);
+    console.log(`✅ Duplicate grant result: ${duplicateGrant === null ? 'BLOCKED (correct)' : 'ALLOWED (incorrect)'}`);
+    console.log(`✅ Balance unchanged: ${balance === balanceAfterDuplicate ? 'YES' : 'NO'}`);
     
     // Test 7: Test payment failure scenario
     console.log('\n7️⃣ Testing payment failure (past_due)...');
@@ -80,11 +91,29 @@ async function testWebhookLogic() {
     const userAfterFailed = syncUserTierWithSubscription(user.user.id);
     console.log(`✅ User tier after failed payment: ${userAfterFailed?.tier}`);
     
+    // Test 7b: Test token freeze
+    console.log('\n7️⃣b Testing token freeze...');
+    freezeTokenUsage(user.user.id);
+    const isFrozen = isTokenUsageFrozen(user.user.id);
+    console.log(`✅ Tokens frozen: ${isFrozen}`);
+    const canDeduct = deductTokens(user.user.id, 10);
+    console.log(`✅ Can deduct tokens when frozen: ${canDeduct ? 'YES (incorrect)' : 'NO (correct)'}`);
+    
     // Test 8: Test payment success after past_due
     console.log('\n8️⃣ Testing payment success (recovery)...');
     updateSubscriptionStatus('sub_test123', 'active');
     const userAfterRecovery = syncUserTierWithSubscription(user.user.id);
     console.log(`✅ User tier after recovery: ${userAfterRecovery?.tier}`);
+    
+    // Test 8b: Test token unfreeze
+    console.log('\n8️⃣b Testing token unfreeze...');
+    unfreezeTokenUsage(user.user.id);
+    const isStillFrozen = isTokenUsageFrozen(user.user.id);
+    console.log(`✅ Tokens still frozen: ${isStillFrozen ? 'YES (incorrect)' : 'NO (correct)'}`);
+    const canDeductAfterUnfreeze = deductTokens(user.user.id, 10);
+    const balanceAfterDeduct = getTokenBalance(user.user.id);
+    console.log(`✅ Can deduct tokens after unfreeze: ${canDeductAfterUnfreeze ? 'YES (correct)' : 'NO (incorrect)'}`);
+    console.log(`✅ Balance after deduct: ${balanceAfterDeduct}`);
     
     // Test 9: Test subscription cancellation
     console.log('\n9️⃣ Testing subscription cancellation...');

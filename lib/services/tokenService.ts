@@ -5,6 +5,8 @@ import { generateSecureId } from '../utils/secureId';
 // In-memory storage for tokens
 const tokenBalances = new Map<string, number>(); // userId -> balance
 const tokenGrants = new Map<string, TokenGrant[]>(); // userId -> grants[]
+const tokenFreezes = new Map<string, boolean>(); // userId -> isFrozen
+const grantedThisPeriod = new Map<string, Set<string>>(); // userId -> Set<subscriptionId_period>
 
 // Token amounts for different events
 export const TOKEN_AMOUNTS = {
@@ -56,6 +58,11 @@ export function grantTokens(params: {
  * Deduct tokens from a user
  */
 export function deductTokens(userId: string, amount: number): boolean {
+  // Check if user is frozen
+  if (isTokenUsageFrozen(userId)) {
+    return false; // Cannot use tokens when frozen
+  }
+
   const currentBalance = tokenBalances.get(userId) || 0;
   
   if (currentBalance < amount) {
@@ -77,8 +84,7 @@ export function setTokenBalance(userId: string, balance: number): void {
  * Freeze token usage (for past_due subscriptions)
  */
 export function freezeTokenUsage(userId: string): boolean {
-  // In a real implementation, this would set a flag in the database
-  // For now, we'll just return true to indicate the freeze was acknowledged
+  tokenFreezes.set(userId, true);
   return true;
 }
 
@@ -86,8 +92,15 @@ export function freezeTokenUsage(userId: string): boolean {
  * Unfreeze token usage
  */
 export function unfreezeTokenUsage(userId: string): boolean {
-  // In a real implementation, this would clear the freeze flag
+  tokenFreezes.delete(userId);
   return true;
+}
+
+/**
+ * Check if token usage is frozen for a user
+ */
+export function isTokenUsageFrozen(userId: string): boolean {
+  return tokenFreezes.get(userId) === true;
 }
 
 /**
@@ -101,20 +114,41 @@ export function getTokenGrants(userId: string): TokenGrant[] {
  * Check if user has sufficient tokens
  */
 export function hasSufficientTokens(userId: string, required: number): boolean {
+  if (isTokenUsageFrozen(userId)) {
+    return false;
+  }
   const balance = getTokenBalance(userId);
   return balance >= required;
 }
 
 /**
- * Grant monthly Pro subscription tokens
+ * Grant monthly Pro subscription tokens (with idempotency check)
  */
-export function grantMonthlyProTokens(userId: string, subscriptionId: string): TokenGrant {
-  return grantTokens({
+export function grantMonthlyProTokens(userId: string, subscriptionId: string, periodEnd?: Date): TokenGrant | null {
+  // Create idempotency key based on subscription and billing period
+  const periodKey = periodEnd ? periodEnd.toISOString().slice(0, 7) : new Date().toISOString().slice(0, 7);
+  const idempotencyKey = `${subscriptionId}_${periodKey}`;
+  
+  // Check if tokens were already granted for this period
+  const userGrants = grantedThisPeriod.get(userId) || new Set();
+  if (userGrants.has(idempotencyKey)) {
+    console.log(`Tokens already granted for ${userId} in period ${periodKey}`);
+    return null; // Already granted, skip to prevent duplicates
+  }
+  
+  // Grant tokens
+  const grant = grantTokens({
     userId,
     amount: TOKEN_AMOUNTS.MONTHLY_PRO,
     reason: 'Monthly Pro subscription token grant',
     subscriptionId,
   });
+  
+  // Mark as granted for this period
+  userGrants.add(idempotencyKey);
+  grantedThisPeriod.set(userId, userGrants);
+  
+  return grant;
 }
 
 /**
