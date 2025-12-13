@@ -67,6 +67,38 @@ export interface Credits {
   rolloverExpiryAt: Date;
 }
 
+export type SubscriptionStatus = 
+  | 'active' 
+  | 'past_due' 
+  | 'canceled' 
+  | 'incomplete' 
+  | 'incomplete_expired' 
+  | 'trialing' 
+  | 'unpaid'
+  | 'paused';
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  priceId: string;
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TokenGrant {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  subscriptionId?: string;
+  createdAt: Date;
+}
+
 export interface Referral {
   id: string;
   referrerId: string;
