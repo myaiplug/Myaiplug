@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateJobCost } from '@/lib/constants/pricing';
-import { TIME_SAVED_BASELINES } from '@/lib/constants/gamification';
+import { TIME_SAVED_BASELINES, POINT_EVENTS } from '@/lib/constants/gamification';
 import { awardPoints } from '@/lib/services/pointsEngine';
 import { createJob, completeJob } from '@/lib/services/jobService';
 import { updateProfileStats } from '@/lib/services/userService';
@@ -122,20 +122,24 @@ export async function POST(request: NextRequest) {
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // In a real implementation with authentication:
-    // 1. Get userId from session/token
-    // 2. Check user has enough credits
-    // 3. Deduct credits from user account
-    // 4. Create job record
-    // 5. Award points
-    // 6. Update leaderboard
+    // TODO: Replace with actual authentication system
+    // 1. Get userId from session/token (e.g., from cookies or Authorization header)
+    // 2. Verify user is authenticated
+    // 3. Check user has enough credits in their account
+    // 4. Deduct credits from user account atomically
+    // 5. Create job record in database
+    // 6. Award points via pointsEngine service
+    // 7. Update leaderboard via leaderboardService
+    // 8. Return job ID for tracking
     
-    // For demo purposes, we'll simulate these operations
-    const userId = 'demo_user'; // In production, get from auth
+    // For demo purposes with in-memory storage, we simulate these operations
+    const userId = 'demo_user'; // In production, get from req.headers.authorization or session
     
-    // Award points (simulated - would check auth first)
-    const pointsAwarded = 75; // Base points for audio processing
+    // Award points using gamification constants
+    // Points for job completion based on processing time
+    const pointsAwarded = POINT_EVENTS.JOB_MEDIUM; // 200 points for medium job (audio processing)
     
-    // Determine badge (simulated)
+    // Determine badge based on effects applied (simulated)
     const badgeEarned = effects.length >= 3 ? 'Audio Master' : 'Audio Processor I';
 
     // Prepare response

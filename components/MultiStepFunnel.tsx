@@ -12,7 +12,7 @@ interface JobData {
   fileName: string;
   preset: string;
   proPreview: boolean;
-  effects: string[]; // Array of selected effects
+  effects: string[]; // Array of effect IDs: 'clean', 'loudness', 'bass_boost'
   audioFile?: File;
   result?: {
     url: string;
