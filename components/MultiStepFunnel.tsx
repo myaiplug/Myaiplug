@@ -144,12 +144,19 @@ export default function MultiStepFunnel() {
       if (!response.ok) {
         let errorMessage = 'Failed to process audio';
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
+          // Read the response body once as text
+          const responseText = await response.text();
+          // Try to parse it as JSON
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorMessage;
+          } catch (jsonError) {
+            // Not JSON, use the text directly
+            errorMessage = responseText || `Server error: ${response.status} ${response.statusText}`;
+          }
         } catch (e) {
-          // Response is not JSON, try to get text
-          const errorText = await response.text();
-          errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+          // Failed to read response
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
       }
