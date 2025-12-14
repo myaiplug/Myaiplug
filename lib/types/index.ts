@@ -50,6 +50,7 @@ export interface Profile {
   timeSavedSecTotal: number;
   badges: Badge[];
   privacyOptOut: boolean;
+  membership?: 'free' | 'pro' | 'vip';
 }
 
 export interface Badge {
@@ -197,3 +198,28 @@ export type RemixFormat =
   | 'voiceover'
   | 'user_video'
   | 'short_form';
+
+export interface UsageLog {
+  id: string;
+  userId: string;
+  action: string;
+  endpoint?: string;
+  timestamp: Date;
+  metadata?: Record<string, any>;
+}
+
+export interface MembershipTier {
+  tier: 'free' | 'pro' | 'vip';
+  limits: {
+    stemSplitPerDay: number;
+    halfScrewPerDay: number;
+    cleanPerDay: number;
+    maxFileDuration: number; // in seconds
+    asyncJobQueue: boolean;
+  };
+  permissions: {
+    twoStemModel: boolean;
+    fiveStemModel: boolean;
+    advancedHalfScrew: boolean;
+  };
+}

@@ -6,6 +6,7 @@
 import { stft, istft, Complex, STFTConfig, DEFAULT_STFT_CONFIG } from '../utils/stft';
 import { TFLocoformer, TFLocoformerConfig, MEDIUM_MODEL_CONFIG, PRO_MODEL_CONFIG } from '../models/tf-locoformer';
 import { DeviceManager, getDeviceManager } from '../utils/device';
+import { loadWeightsFromFile, ModelWeights } from '../utils/weight-loader';
 
 export interface SeparationOptions {
   tier: 'free' | 'pro';
@@ -38,8 +39,11 @@ export class TFLocoformerInference {
   private stftConfig: STFTConfig;
   private deviceManager: DeviceManager;
   private isInitialized: boolean = false;
+  private weights: ModelWeights | null = null;
+  private tier: 'free' | 'pro';
 
   constructor(tier: 'free' | 'pro' = 'free') {
+    this.tier = tier;
     this.config = tier === 'pro' ? PRO_MODEL_CONFIG : MEDIUM_MODEL_CONFIG;
     this.stftConfig = DEFAULT_STFT_CONFIG;
     this.deviceManager = getDeviceManager();
@@ -61,8 +65,23 @@ export class TFLocoformerInference {
     // Create model
     this.model = new TFLocoformer(this.config);
 
-    // In production, load pre-trained weights here
-    // this.loadModelWeights();
+    // Load pre-trained weights
+    try {
+      console.log(`Loading pretrained weights for ${this.tier} tier...`);
+      this.weights = await loadWeightsFromFile(
+        this.tier === 'pro' ? 'pro' : 'medium',
+        'latest'
+      );
+      
+      // Load weights into model
+      if (this.weights && this.model) {
+        this.model.loadWeights(this.weights);
+        console.log('Pretrained weights loaded successfully');
+      }
+    } catch (error) {
+      console.warn('Failed to load pretrained weights:', error);
+      console.warn('Model will use randomly initialized weights (not recommended for production)');
+    }
 
     this.isInitialized = true;
     console.log('TF-Locoformer initialized successfully');

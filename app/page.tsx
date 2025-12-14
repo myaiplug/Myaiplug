@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import Hero from '@/sections/Hero';
+import PremiumAudioDemo from '@/components/PremiumAudioDemo';
 import MultiStepFunnel from '@/components/MultiStepFunnel';
 import HowItWorks from '@/components/HowItWorks';
 import ValueTrio from '@/components/ValueTrio';
@@ -121,6 +122,8 @@ export default function Home() {
       <Header />
       <main className="min-h-screen">
         <Hero />
+        {/* Premium Audio Effects Demo - Featured */}
+        <PremiumAudioDemo />
         <MultiStepFunnel />
         <HowItWorks />
         <ValueTrio />

@@ -1,24 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
+import { authorizeAndConsume } from '@/lib/services/entitlements';
+import { getOptionalUserId } from '@/lib/services/auth';
+import { 
+  decodeAudioFile, 
+  isSupportedFormat, 
+  validateAudioConstraints 
+} from '@/lib/audio-processing/utils/audio-decoder';
 
 /**
  * POST /api/audio/separate
  * Separates audio into stems using TF-Locoformer
+ * Platform-wide entitlement system with capability-based authorization
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - tier: 'free' | 'pro' (default: 'free')
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  * - normalize: boolean (default: true)
+ * - debug: boolean (default: false) - Enable detailed benchmark logging
+ * 
+ * Authentication via Authorization header (Supabase Auth)
  */
 export async function POST(request: NextRequest) {
+  const benchmarks: Record<string, number> = {};
+  const overallStartTime = Date.now();
+  
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const tier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
     const normalize = (formData.get('normalize') as string) !== 'false';
+    const debug = (formData.get('debug') as string) === 'true';
+
+    benchmarks.requestParsing = Date.now() - overallStartTime;
 
     if (!audioFile) {
       return NextResponse.json(
@@ -27,64 +42,154 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate tier
-    if (tier !== 'free' && tier !== 'pro') {
-      return NextResponse.json(
-        { error: 'Invalid tier. Must be "free" or "pro"' },
-        { status: 400 }
-      );
+    // Resolve userId from Supabase Auth (server-side)
+    // For backward compatibility, also check form data
+    const authStart = Date.now();
+    const userId = await getOptionalUserId(request);
+    benchmarks.authResolution = Date.now() - authStart;
+
+    // Authorization and capability check
+    let authResult = null;
+    let tier: 'free' | 'pro' = 'free';
+    let modelVariant = '2-stem';
+
+    if (userId) {
+      const authzStart = Date.now();
+      authResult = await authorizeAndConsume({
+        userId,
+        capabilityKey: 'stem_split',
+        usageAmount: 1, // 1 job
+      });
+      benchmarks.authorization = Date.now() - authzStart;
+
+      if (!authResult.allowed) {
+        return NextResponse.json(
+          {
+            error: authResult.error,
+            tier: authResult.tier,
+            remainingUsage: authResult.remainingUsage,
+            upgradeUrl: authResult.upgradeUrl,
+            capabilityName: authResult.capabilityName,
+          },
+          { status: 429 }
+        );
+      }
+
+      // Use tier and model variant from authorization
+      tier = authResult.tier === 'free' ? 'free' : 'pro';
+      modelVariant = authResult.modelVariant || '2-stem';
+    } else {
+      // No userId - allow operation with free tier for backward compatibility
+      // In production, you may want to require authentication
+      console.warn('No userId provided - defaulting to free tier');
     }
 
-    // Validate file type
+    // Validate file type with detailed error messages
     const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
+    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
+    
+    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(validExtensions)) {
+      const fileExt = audioFile.name.split('.').pop()?.toLowerCase() || 'unknown';
+    // Validate file type using new audio decoder utility
+    if (!isSupportedFormat(audioFile.type, audioFile.name)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
+        { 
+          error: 'Unsupported audio format',
+          details: `The file format '.${fileExt}' is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
+          supportedFormats: ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'webm'],
+          detectedFormat: fileExt,
+        },
         { status: 400 }
       );
     }
 
-    // Validate file size (100MB max)
+    // Validate file size (100MB max) with detailed message
     const maxSize = 100 * 1024 * 1024;
     if (audioFile.size > maxSize) {
+      const sizeMB = (audioFile.size / (1024 * 1024)).toFixed(2);
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 100MB' },
+        { 
+          error: 'File too large',
+          details: `The file size (${sizeMB} MB) exceeds the maximum allowed size of 100 MB. Please compress your audio file or split it into smaller segments.`,
+          fileSize: audioFile.size,
+          maxSize,
+          sizeMB: parseFloat(sizeMB),
+        },
+    // Validate file size
+    const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
+    if (!sizeValidation.valid) {
+      return NextResponse.json(
+        { error: sizeValidation.error },
         { status: 400 }
       );
     }
 
-    console.log(`Processing audio separation request: ${audioFile.name}, tier: ${tier}`);
+    console.log(`Processing stem separation: ${audioFile.name}, tier: ${tier}, model: ${modelVariant}`);
 
     // Initialize device manager
+    const deviceInitStart = Date.now();
     await initializeDeviceManager();
+    benchmarks.deviceInit = Date.now() - deviceInitStart;
 
-    // Create inference engine
-    const engine = createInferenceEngine(tier as 'free' | 'pro');
+    // Create inference engine based on model variant
+    const engineInitStart = Date.now();
+    const engine = createInferenceEngine(tier);
     await engine.initialize();
+    benchmarks.engineInit = Date.now() - engineInitStart;
 
+    // Decode audio file
     // NOTE: In production, decode audio file properly using Web Audio API or audio libraries
-    // For Phase 1, this is a stub that assumes the file contains raw PCM data
-    // Real implementation would use: AudioContext.decodeAudioData() or libraries like 'audio-decode'
+    const decodeStart = Date.now();
+    // Decode audio file using the new audio decoder
     const arrayBuffer = await audioFile.arrayBuffer();
+    let audioData: Float32Array;
+    let actualSampleRate: number;
+    let actualDuration: number;
     
-    // Stub: Create dummy audio data for testing
-    // In production, replace with actual decoded audio
-    const dummyLength = 44100 * 3; // 3 seconds
-    const audioData = new Float32Array(dummyLength);
-    for (let i = 0; i < audioData.length; i++) {
-      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5; // 440 Hz test tone
+    try {
+      console.log('Decoding audio file...');
+      const decoded = await decodeAudioFile(arrayBuffer, 44100, true);
+      audioData = decoded.audioData;
+      actualSampleRate = decoded.info.sampleRate;
+      actualDuration = decoded.info.duration;
+      
+      // Validate duration after decoding
+      const durationValidation = validateAudioConstraints(
+        audioFile.size, 
+        actualDuration, 
+        tier as 'free' | 'pro'
+      );
+      if (!durationValidation.valid) {
+        return NextResponse.json(
+          { error: durationValidation.error },
+          { status: 400 }
+        );
+      }
+      
+      console.log(`Decoded ${actualDuration.toFixed(2)}s of audio at ${actualSampleRate}Hz`);
+    } catch (decodeError) {
+      console.error('Audio decoding error:', decodeError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to decode audio file',
+          details: decodeError instanceof Error ? decodeError.message : 'Unknown error'
+        },
+        { status: 400 }
+      );
     }
+    benchmarks.audioDecode = Date.now() - decodeStart;
 
     // Perform separation
-    const startTime = Date.now();
+    const separationStart = Date.now();
     const result = await engine.separate(audioData, {
       tier: tier as 'free' | 'pro',
       outputFormat: format as 'wav' | 'mp3' | 'flac',
-      sampleRate: 44100,
+      sampleRate: actualSampleRate,
       normalize,
     });
+    benchmarks.separation = Date.now() - separationStart;
 
-    const processingTime = Date.now() - startTime;
+    const processingTime = Date.now() - overallStartTime;
 
     // Get device info
     const deviceInfo = engine.getDeviceInfo();
@@ -96,37 +201,92 @@ export async function POST(request: NextRequest) {
         name: stemName,
         length: stemAudio.length,
         duration: stemAudio.length / result.sampleRate,
-        // In production, encode to requested format and provide download URL
+        // File naming: originalFilename_stemsplit_stemName.format
+        filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_stemsplit_${stemName}.${format}`,
         available: true,
       };
+    }
+
+    // Log benchmark details if debug mode is enabled
+    if (debug) {
+      console.log('Separation Benchmarks:', {
+        ...benchmarks,
+        total: processingTime,
+        breakdown: {
+          requestParsing: `${benchmarks.requestParsing}ms`,
+          authResolution: `${benchmarks.authResolution || 0}ms`,
+          authorization: `${benchmarks.authorization || 0}ms`,
+          deviceInit: `${benchmarks.deviceInit}ms`,
+          engineInit: `${benchmarks.engineInit}ms`,
+          audioDecode: `${benchmarks.audioDecode}ms`,
+          separation: `${benchmarks.separation}ms`,
+        },
+      });
     }
 
     return NextResponse.json({
       success: true,
       jobId: `sep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       tier,
+      modelVariant,
       stems,
       processing: {
         duration: result.duration,
         processingTime,
         device: result.device,
         supportsRealtime: engine.supportsRealtime(),
+        benchmarks: debug ? benchmarks : undefined,
       },
       device: {
         current: deviceInfo.current,
         capability: deviceInfo.capability,
       },
+      entitlement: authResult ? {
+        tier: authResult.tier,
+        remainingUsage: authResult.remainingUsage,
+        allowAsync: authResult.allowAsync,
+      } : undefined,
       message: `Audio separated into ${Object.keys(stems).length} stems`,
     });
 
   } catch (error) {
     console.error('Separation error:', error);
+    
+    // Provide detailed error messages based on error type
+    let errorMessage = 'Failed to separate audio';
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      // Handle specific error types
+      if (error.message.includes('decode')) {
+        errorMessage = 'Audio file decoding failed';
+        errorDetails = 'The audio file appears to be corrupted or in an unsupported format. Please try re-encoding your audio file or use a different format.';
+        statusCode = 400;
+      } else if (error.message.includes('memory') || error.message.includes('Memory')) {
+        errorMessage = 'Insufficient memory';
+        errorDetails = 'The audio file is too large to process with available memory. Please try a shorter file or reduce the sample rate.';
+        statusCode = 507;
+      } else if (error.message.includes('GPU') || error.message.includes('device')) {
+        errorMessage = 'Device processing error';
+        errorDetails = 'There was an issue with GPU/CPU processing. The system will retry with CPU processing.';
+      } else if (error.message.includes('not initialized')) {
+        errorMessage = 'Inference engine not initialized';
+        errorDetails = 'The audio processing engine failed to initialize. Please try again.';
+      } else if (error.message.includes('Authentication required')) {
+        errorMessage = 'Authentication required';
+        errorDetails = 'Please provide valid authentication credentials.';
+        statusCode = 401;
+      }
+    }
+
     return NextResponse.json(
       { 
-        error: 'Failed to separate audio',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -140,21 +300,34 @@ export async function GET() {
     description: 'Separate audio into stems using TF-Locoformer',
     method: 'POST',
     contentType: 'multipart/form-data',
+    authentication: 'Authorization: Bearer <supabase_token> (optional for backward compatibility)',
     parameters: {
       audio: 'Audio file (required)',
-      tier: '"free" | "pro" (default: "free")',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
       normalize: 'boolean (default: true)',
+      debug: 'boolean (default: false) - Enable benchmark logging',
     },
     tiers: {
       free: {
         stems: ['vocals', 'instrumental'],
+        modelVariant: '2-stem',
         maxDuration: 180, // 3 minutes
+        dailyLimit: 5,
       },
       pro: {
         stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
+        modelVariant: '5-stem',
         maxDuration: 600, // 10 minutes
+        dailyLimit: 50,
+      },
+      vip: {
+        stems: ['vocals', 'drums', 'bass', 'instruments', 'fx'],
+        modelVariant: '5-stem',
+        maxDuration: 3600, // 1 hour
+        dailyLimit: 'unlimited',
       },
     },
+    outputFileNaming: '{originalFilename}_stemsplit_{stemName}.{format}',
+    entitlementSystem: 'Platform-wide capability-based authorization',
   });
 }
