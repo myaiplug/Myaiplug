@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInferenceEngine } from '@/lib/audio-processing/inference/engine';
 import { initializeDeviceManager } from '@/lib/audio-processing/utils/device';
+import { authorizeAndConsume } from '@/lib/services/entitlements';
+import { getOptionalUserId } from '@/lib/services/auth';
 import { 
   decodeAudioFile, 
   isSupportedFormat, 
@@ -10,19 +12,19 @@ import {
 /**
  * POST /api/audio/enhance
  * Enhances audio for NoDAW polish
- * Separates and remixes stems with optimized levels for professional sound
+ * Platform-wide entitlement system with capability-based authorization
  * 
  * Body:
  * - audio: Audio file (multipart/form-data)
- * - tier: 'free' | 'pro' (default: 'free')
  * - format: 'wav' | 'mp3' | 'flac' (default: 'wav')
  * - enhancementLevel: 'subtle' | 'moderate' | 'aggressive' (default: 'moderate')
+ * 
+ * Authentication via Authorization header (Supabase Auth)
  */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
-    const tier = (formData.get('tier') as string) || 'free';
     const format = (formData.get('format') as string) || 'wav';
     const enhancementLevel = (formData.get('enhancementLevel') as string) || 'moderate';
 
@@ -33,12 +35,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate tier
-    if (tier !== 'free' && tier !== 'pro') {
-      return NextResponse.json(
-        { error: 'Invalid tier. Must be "free" or "pro"' },
-        { status: 400 }
-      );
+    // Resolve userId from Supabase Auth
+    const userId = await getOptionalUserId(request);
+
+    // Authorization check
+    let authResult = null;
+    let tier: 'free' | 'pro' = 'free';
+
+    if (userId) {
+      authResult = await authorizeAndConsume({
+        userId,
+        capabilityKey: 'audio_enhance',
+        usageAmount: 1,
+      });
+
+      if (!authResult.allowed) {
+        return NextResponse.json(
+          {
+            error: authResult.error,
+            tier: authResult.tier,
+            remainingUsage: authResult.remainingUsage,
+            upgradeUrl: authResult.upgradeUrl,
+            capabilityName: authResult.capabilityName,
+          },
+          { status: 429 }
+        );
+      }
+
+      tier = authResult.tier === 'free' ? 'free' : 'pro';
     }
 
     // Validate enhancement level
@@ -67,7 +91,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Processing audio enhancement request: ${audioFile.name}, tier: ${tier}, level: ${enhancementLevel}`);
+    console.log(`Processing audio enhancement: ${audioFile.name}, tier: ${tier}, level: ${enhancementLevel}`);
 
     // Initialize device manager
     await initializeDeviceManager();
@@ -82,6 +106,11 @@ export async function POST(request: NextRequest) {
     let actualSampleRate: number;
     let actualDuration: number;
     
+    // NOTE: Phase stub - create test audio data
+    const dummyLength = 44100 * 3;
+    const audioData = new Float32Array(dummyLength);
+    for (let i = 0; i < audioData.length; i++) {
+      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5;
     try {
       console.log('Decoding audio file...');
       const decoded = await decodeAudioFile(arrayBuffer, 44100, true);
@@ -140,7 +169,7 @@ export async function POST(request: NextRequest) {
         length: enhancedAudio.length,
         duration: enhancedAudio.length / 44100,
         format,
-        // In production, encode to requested format and provide download URL
+        filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_enhanced.${format}`,
         available: true,
       },
       processing: {
@@ -153,17 +182,33 @@ export async function POST(request: NextRequest) {
         capability: deviceInfo.capability,
       },
       quality: qualityMetrics,
+      entitlement: authResult ? {
+        tier: authResult.tier,
+        remainingUsage: authResult.remainingUsage,
+        allowAsync: authResult.allowAsync,
+      } : undefined,
       message: 'Audio enhanced successfully for NoDAW polish',
     });
 
   } catch (error) {
     console.error('Enhancement error:', error);
+    
+    let errorMessage = 'Failed to enhance audio';
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    let statusCode = 500;
+
+    if (error instanceof Error && error.message.includes('Authentication required')) {
+      errorMessage = 'Authentication required';
+      errorDetails = 'Please provide valid authentication credentials.';
+      statusCode = 401;
+    }
+
     return NextResponse.json(
       { 
-        error: 'Failed to enhance audio',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage,
+        details: errorDetails,
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -174,46 +219,38 @@ export async function POST(request: NextRequest) {
 function calculateQualityMetrics(
   original: Float32Array,
   enhanced: Float32Array
-): {
-  dynamicRangeImprovement: number;
-  clarityScore: number;
-  balanceScore: number;
-} {
-  // Calculate RMS for dynamic range
-  const originalRMS = calculateRMS(original);
-  const enhancedRMS = calculateRMS(enhanced);
+): { snr: number; rmsGain: number; dynamicRange: number } {
+  // Signal-to-noise ratio (simplified)
+  let originalRms = 0;
+  let enhancedRms = 0;
   
-  // Calculate peak values
-  const originalPeak = Math.max(...Array.from(original).map(Math.abs));
-  const enhancedPeak = Math.max(...Array.from(enhanced).map(Math.abs));
+  for (let i = 0; i < Math.min(original.length, enhanced.length); i++) {
+    originalRms += original[i] * original[i];
+    enhancedRms += enhanced[i] * enhanced[i];
+  }
   
-  // Dynamic range improvement (in dB)
-  const originalDR = 20 * Math.log10(originalPeak / (originalRMS + 1e-10));
-  const enhancedDR = 20 * Math.log10(enhancedPeak / (enhancedRMS + 1e-10));
-  const dynamicRangeImprovement = enhancedDR - originalDR;
+  originalRms = Math.sqrt(originalRms / original.length);
+  enhancedRms = Math.sqrt(enhancedRms / enhanced.length);
   
-  // Clarity score (simplified - higher frequency content)
-  const clarityScore = 0.85; // Placeholder
+  const snr = 20 * Math.log10(enhancedRms / (originalRms + 1e-10));
+  const rmsGain = enhancedRms / (originalRms + 1e-10);
   
-  // Balance score (how well stems are mixed)
-  const balanceScore = 0.92; // Placeholder
+  // Dynamic range
+  let maxVal = 0;
+  let minVal = 0;
+  
+  for (let i = 0; i < enhanced.length; i++) {
+    maxVal = Math.max(maxVal, enhanced[i]);
+    minVal = Math.min(minVal, enhanced[i]);
+  }
+  
+  const dynamicRange = 20 * Math.log10((maxVal - minVal) / 2);
   
   return {
-    dynamicRangeImprovement: Math.round(dynamicRangeImprovement * 100) / 100,
-    clarityScore: Math.round(clarityScore * 100) / 100,
-    balanceScore: Math.round(balanceScore * 100) / 100,
+    snr: Number(snr.toFixed(2)),
+    rmsGain: Number(rmsGain.toFixed(2)),
+    dynamicRange: Number(dynamicRange.toFixed(2)),
   };
-}
-
-/**
- * Calculate RMS (Root Mean Square) of audio signal
- */
-function calculateRMS(audio: Float32Array): number {
-  let sumSquares = 0;
-  for (let i = 0; i < audio.length; i++) {
-    sumSquares += audio[i] * audio[i];
-  }
-  return Math.sqrt(sumSquares / audio.length);
 }
 
 /**
@@ -226,22 +263,26 @@ export async function GET() {
     purpose: 'Separates and remixes stems with optimized levels for professional sound',
     method: 'POST',
     contentType: 'multipart/form-data',
+    authentication: 'Authorization: Bearer <supabase_token> (optional)',
     parameters: {
       audio: 'Audio file (required)',
-      tier: '"free" | "pro" (default: "free")',
       format: '"wav" | "mp3" | "flac" (default: "wav")',
       enhancementLevel: '"subtle" | "moderate" | "aggressive" (default: "moderate")',
     },
-    enhancement_levels: {
-      subtle: 'Light touch-up, preserves original character',
-      moderate: 'Balanced enhancement with improved clarity and dynamics',
-      aggressive: 'Maximum processing for dramatic improvement',
+    limits: {
+      free: {
+        dailyLimit: 10,
+        maxDuration: 180,
+      },
+      pro: {
+        dailyLimit: 100,
+        maxDuration: 600,
+      },
+      vip: {
+        dailyLimit: 'unlimited',
+        maxDuration: 3600,
+      },
     },
-    use_cases: [
-      'Post-processing for NoDAW',
-      'Stem separation and remix',
-      'Professional mastering',
-      'Mix balance optimization',
-    ],
+    entitlementSystem: 'Platform-wide capability-based authorization',
   });
 }
