@@ -227,7 +227,9 @@ export async function decodeAudioFile(
     
     const info: AudioInfo = {
       sampleRate: targetSampleRate,
-      duration: audioData.length / (convertToMono ? targetSampleRate : targetSampleRate * 2),
+      duration: convertToMono 
+        ? audioData.length / targetSampleRate
+        : audioData.length / targetSampleRate / 2, // Stereo: divide by 2 for interleaved channels
       channels: convertToMono ? 1 : 2,
       length: audioData.length,
     };

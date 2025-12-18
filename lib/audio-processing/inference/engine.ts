@@ -57,6 +57,10 @@ export class TFLocoformerInference {
   private tier: 'free' | 'pro';
   private executionMode: ExecutionMode;
   private weightHash: string | null = null; // PHASE 2: Track weight hash
+  
+  // PHASE 2 SOTA: Configurable chunking parameters
+  private readonly CHUNK_DURATION_SEC = 18; // 15-20 seconds
+  private readonly OVERLAP_DURATION_SEC = 1.75; // 1.5-2 seconds
 
   constructor(tier: 'free' | 'pro' = 'free') {
     this.tier = tier;
@@ -179,9 +183,9 @@ export class TFLocoformerInference {
     const opts = { ...DEFAULT_SEPARATION_OPTIONS, ...options };
     const startTime = performance.now();
 
-    // PHASE 2 SOTA: Chunking parameters
-    const chunkDurationSec = 18; // 15-20 seconds
-    const overlapDurationSec = 1.75; // 1.5-2 seconds
+    // PHASE 2 SOTA: Chunking parameters (configurable)
+    const chunkDurationSec = this.CHUNK_DURATION_SEC;
+    const overlapDurationSec = this.OVERLAP_DURATION_SEC;
     const chunkSize = Math.floor(chunkDurationSec * opts.sampleRate);
     const overlapSize = Math.floor(overlapDurationSec * opts.sampleRate);
     const hopSize = chunkSize - overlapSize;
@@ -231,7 +235,20 @@ export class TFLocoformerInference {
         
         for (let i = 0; i < currentChunkSize && (offset + i) < monoAudio.length; i++) {
           // Apply window function for smooth transitions
-          const windowValue = window[i < overlapSize ? i : (i > currentChunkSize - overlapSize ? i : overlapSize)];
+          // Use appropriate window value based on position in chunk
+          let windowValue: number;
+          if (i < overlapSize) {
+            // Fade-in region
+            windowValue = window[i];
+          } else if (i >= currentChunkSize - overlapSize) {
+            // Fade-out region - index from end of window
+            const fadeOutIdx = chunkSize - (currentChunkSize - i);
+            windowValue = window[fadeOutIdx];
+          } else {
+            // Middle region - unity gain
+            windowValue = 1.0;
+          }
+          
           stemBuffer[offset + i] += chunkStem[i] * windowValue;
         }
       }
@@ -314,6 +331,12 @@ export class TFLocoformerInference {
    */
   private createHannWindow(chunkSize: number, overlapSize: number): Float32Array {
     const window = new Float32Array(chunkSize);
+    
+    // Validate parameters
+    if (overlapSize * 2 > chunkSize) {
+      console.warn(`[PHASE2 SOTA] Overlap too large: ${overlapSize * 2} > ${chunkSize}. Adjusting...`);
+      overlapSize = Math.floor(chunkSize / 3); // Use 1/3 of chunk as overlap
+    }
     
     // Hann window for overlap regions
     for (let i = 0; i < overlapSize; i++) {
