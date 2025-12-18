@@ -147,9 +147,9 @@ export class TFLocoformerInference {
   private calculateWeightHash(weights: ModelWeights): string {
     // Simple hash based on metadata
     const hashString = JSON.stringify({
-      variant: weights.metadata?.variant,
+      modelType: weights.metadata?.modelType,
       version: weights.metadata?.version,
-      date: weights.metadata?.trainedDate,
+      created: weights.metadata?.createdAt,
     });
     
     let hash = 0;
