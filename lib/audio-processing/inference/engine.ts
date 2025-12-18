@@ -5,7 +5,7 @@
 
 import { stft, istft, Complex, STFTConfig, DEFAULT_STFT_CONFIG } from '../utils/stft';
 import { TFLocoformer, TFLocoformerConfig, MEDIUM_MODEL_CONFIG, PRO_MODEL_CONFIG } from '../models/tf-locoformer';
-import { DeviceManager, getDeviceManager } from '../utils/device';
+import { DeviceManager, getDeviceManager, ExecutionMode, ExecutionConstraints } from '../utils/device';
 import { loadWeightsFromFile, ModelWeights } from '../utils/weight-loader';
 
 export interface SeparationOptions {
@@ -13,6 +13,7 @@ export interface SeparationOptions {
   outputFormat: 'wav' | 'mp3' | 'flac';
   sampleRate: number;
   normalize: boolean;
+  debug?: boolean; // PHASE 2: Enable engine metadata output
 }
 
 export const DEFAULT_SEPARATION_OPTIONS: SeparationOptions = {
@@ -20,7 +21,19 @@ export const DEFAULT_SEPARATION_OPTIONS: SeparationOptions = {
   outputFormat: 'wav',
   sampleRate: 44100,
   normalize: true,
+  debug: false,
 };
+
+export interface EngineMetadata {
+  modelName: string;
+  modelVariant: string;
+  weightHash: string | null;
+  device: string;
+  deviceType: string;
+  chunkSize: number;
+  overlapSize: number;
+  executionMode: string;
+}
 
 export interface SeparationResult {
   stems: Map<string, Float32Array>;
@@ -28,6 +41,7 @@ export interface SeparationResult {
   duration: number;
   processingTime: number;
   device: string;
+  metadata?: EngineMetadata; // PHASE 2: Engine metadata (debug mode only)
 }
 
 /**
@@ -41,26 +55,62 @@ export class TFLocoformerInference {
   private isInitialized: boolean = false;
   private weights: ModelWeights | null = null;
   private tier: 'free' | 'pro';
+  private executionMode: ExecutionMode;
+  private weightHash: string | null = null; // PHASE 2: Track weight hash
 
   constructor(tier: 'free' | 'pro' = 'free') {
     this.tier = tier;
     this.config = tier === 'pro' ? PRO_MODEL_CONFIG : MEDIUM_MODEL_CONFIG;
     this.stftConfig = DEFAULT_STFT_CONFIG;
     this.deviceManager = getDeviceManager();
+    
+    // PHASE 1: Free tier must use CPU-only mode (zero variable cost)
+    this.executionMode = tier === 'free' ? ExecutionMode.CPU_ONLY : ExecutionMode.GPU_ALLOWED;
   }
 
   /**
    * Initialize the inference engine
+   * PHASE 2 SOTA: Predictable GPU failure handling
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
       return;
     }
 
-    console.log('Initializing TF-Locoformer inference engine...');
+    console.log(`Initializing TF-Locoformer inference engine (${this.tier} tier, ${this.executionMode} mode)...`);
 
-    // Initialize device manager
-    await this.deviceManager.initialize();
+    // PHASE 1: Initialize device manager with execution constraints
+    const constraints: ExecutionConstraints = {
+      mode: this.executionMode,
+      forceCPU: this.tier === 'free',
+      tier: this.tier,
+    };
+
+    // PHASE 2: Predictable GPU failure handling
+    try {
+      await this.deviceManager.initialize(undefined, constraints);
+    } catch (error) {
+      console.warn('[PHASE2 SOTA] Device initialization failed:', error);
+      
+      // If GPU initialization fails for Pro tier, explicitly retry on CPU
+      if (this.tier !== 'free') {
+        console.log('[PHASE2 SOTA] GPU unavailable - retrying with CPU...');
+        const cpuConstraints: ExecutionConstraints = {
+          mode: ExecutionMode.CPU_ONLY,
+          forceCPU: true,
+          tier: this.tier,
+        };
+        await this.deviceManager.initialize(undefined, cpuConstraints);
+      } else {
+        throw new Error(`Failed to initialize device: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Verify CPU-only enforcement for free tier
+    const currentDevice = this.deviceManager.getCurrentDevice();
+    if (this.tier === 'free' && currentDevice?.type !== 'cpu') {
+      throw new Error('[PHASE1 SAFETY] Free tier attempted to use GPU - this should never happen');
+    }
 
     // Create model
     this.model = new TFLocoformer(this.config);
@@ -76,19 +126,45 @@ export class TFLocoformerInference {
       // Load weights into model
       if (this.weights && this.model) {
         this.model.loadWeights(this.weights);
-        console.log('Pretrained weights loaded successfully');
+        // PHASE 2: Calculate weight hash for metadata
+        this.weightHash = this.calculateWeightHash(this.weights);
+        console.log(`Pretrained weights loaded successfully (hash: ${this.weightHash})`);
       }
     } catch (error) {
       console.warn('Failed to load pretrained weights:', error);
       console.warn('Model will use randomly initialized weights (not recommended for production)');
+      this.weightHash = null;
     }
 
     this.isInitialized = true;
-    console.log('TF-Locoformer initialized successfully');
+    console.log(`TF-Locoformer initialized successfully on ${currentDevice?.name || 'Unknown device'}`);
   }
 
   /**
-   * Separate audio into stems
+   * Calculate weight hash for metadata
+   * PHASE 2: Simple hash for weight tracking
+   */
+  private calculateWeightHash(weights: ModelWeights): string {
+    // Simple hash based on metadata
+    const hashString = JSON.stringify({
+      variant: weights.metadata?.variant,
+      version: weights.metadata?.version,
+      date: weights.metadata?.trainedDate,
+    });
+    
+    let hash = 0;
+    for (let i = 0; i < hashString.length; i++) {
+      const char = hashString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return Math.abs(hash).toString(16).padStart(8, '0');
+  }
+
+  /**
+   * Separate audio into stems with chunking and overlap-add
+   * PHASE 2 SOTA: Implements 15-20s chunks with 1.5-2s overlap for seamless processing
    * @param audio - Mono or stereo audio buffer
    * @param options - Separation options
    */
@@ -103,45 +179,228 @@ export class TFLocoformerInference {
     const opts = { ...DEFAULT_SEPARATION_OPTIONS, ...options };
     const startTime = performance.now();
 
+    // PHASE 2 SOTA: Chunking parameters
+    const chunkDurationSec = 18; // 15-20 seconds
+    const overlapDurationSec = 1.75; // 1.5-2 seconds
+    const chunkSize = Math.floor(chunkDurationSec * opts.sampleRate);
+    const overlapSize = Math.floor(overlapDurationSec * opts.sampleRate);
+    const hopSize = chunkSize - overlapSize;
+
     // Convert stereo to mono if needed (average channels)
     const monoAudio = this.convertToMono(audio);
 
+    console.log(`[PHASE2 SOTA] Processing ${monoAudio.length} samples with chunking:`);
+    console.log(`  - Chunk size: ${chunkSize} samples (${chunkDurationSec}s)`);
+    console.log(`  - Overlap: ${overlapSize} samples (${overlapDurationSec}s)`);
+    console.log(`  - Hop size: ${hopSize} samples`);
+
+    // Initialize stem buffers for overlap-add
+    const numStems = this.config.numStems;
+    const stemBuffers = new Map<string, Float32Array>();
+    for (const stemName of this.config.stemNames) {
+      stemBuffers.set(stemName, new Float32Array(monoAudio.length));
+    }
+
+    // Create window function for overlap-add (Hann window)
+    const window = this.createHannWindow(chunkSize, overlapSize);
+
+    // Process chunks with overlap-add
+    let chunkIndex = 0;
+    for (let offset = 0; offset < monoAudio.length; offset += hopSize) {
+      const chunkEnd = Math.min(offset + chunkSize, monoAudio.length);
+      const currentChunkSize = chunkEnd - offset;
+      
+      console.log(`  Processing chunk ${chunkIndex + 1} at offset ${offset} (${currentChunkSize} samples)`);
+
+      // Extract chunk
+      const chunk = monoAudio.slice(offset, chunkEnd);
+      
+      // Pad if needed
+      let paddedChunk = chunk;
+      if (currentChunkSize < chunkSize) {
+        paddedChunk = new Float32Array(chunkSize);
+        paddedChunk.set(chunk);
+      }
+
+      // Process chunk through model
+      const chunkStems = await this.processChunk(paddedChunk, opts);
+
+      // Overlap-add into stem buffers with windowing
+      for (const [stemName, chunkStem] of chunkStems) {
+        const stemBuffer = stemBuffers.get(stemName)!;
+        
+        for (let i = 0; i < currentChunkSize && (offset + i) < monoAudio.length; i++) {
+          // Apply window function for smooth transitions
+          const windowValue = window[i < overlapSize ? i : (i > currentChunkSize - overlapSize ? i : overlapSize)];
+          stemBuffer[offset + i] += chunkStem[i] * windowValue;
+        }
+      }
+
+      chunkIndex++;
+    }
+
+    // PHASE 2 SOTA: Apply stem-specific post-conditioning AFTER inference
+    console.log('[PHASE2 SOTA] Applying stem-specific post-conditioning...');
+    this.applyStemPostConditioning(stemBuffers, opts.sampleRate);
+
+    // PHASE 2: Normalize stems individually AFTER inference (if requested)
+    if (opts.normalize) {
+      console.log('[PHASE2 SOTA] Normalizing stems individually after inference...');
+      this.normalizeStems(stemBuffers);
+    }
+
+    const processingTime = performance.now() - startTime;
+
+    // PHASE 2: Build engine metadata (only if debug mode)
+    let metadata: EngineMetadata | undefined;
+    if (opts.debug) {
+      const device = this.deviceManager.getCurrentDevice();
+      metadata = {
+        modelName: 'TF-Locoformer',
+        modelVariant: `${this.config.numStems}-stem`,
+        weightHash: this.weightHash,
+        device: device?.name || 'Unknown',
+        deviceType: device?.type || 'unknown',
+        chunkSize,
+        overlapSize,
+        executionMode: this.executionMode,
+      };
+      console.log('[PHASE2 SOTA] Engine metadata:', metadata);
+    }
+
+    return {
+      stems: stemBuffers,
+      sampleRate: opts.sampleRate,
+      duration: monoAudio.length / opts.sampleRate,
+      processingTime,
+      device: this.deviceManager.getCurrentDevice()?.name || 'Unknown',
+      metadata,
+    };
+  }
+
+  /**
+   * Process a single audio chunk through the model
+   * PHASE 2 SOTA: Core inference for chunked processing
+   */
+  private async processChunk(
+    chunk: Float32Array,
+    opts: SeparationOptions
+  ): Promise<Map<string, Float32Array>> {
     // Perform STFT
-    console.log('Computing STFT...');
-    const spectrogram = stft(monoAudio, this.stftConfig);
+    const spectrogram = stft(chunk, this.stftConfig);
 
     // Prepare input for model
     const modelInput = this.prepareModelInput(spectrogram);
 
     // Run inference
-    console.log('Running model inference...');
-    const modelOutput = this.model.forward(
+    const modelOutput = this.model!.forward(
       modelInput.data,
       modelInput.shape
     );
 
     // Post-process output to get individual stems
-    console.log('Post-processing stems...');
     const stems = this.postProcessOutput(
       modelOutput,
       modelInput.shape,
-      monoAudio.length
+      chunk.length
     );
 
-    // Normalize if requested
-    if (opts.normalize) {
-      this.normalizeStems(stems);
+    return stems;
+  }
+
+  /**
+   * Create Hann window for overlap-add
+   * PHASE 2 SOTA: Smooth windowing to prevent clicks and seams
+   */
+  private createHannWindow(chunkSize: number, overlapSize: number): Float32Array {
+    const window = new Float32Array(chunkSize);
+    
+    // Hann window for overlap regions
+    for (let i = 0; i < overlapSize; i++) {
+      const t = i / overlapSize;
+      window[i] = 0.5 * (1 - Math.cos(Math.PI * t));
     }
+    
+    // Unity gain in the middle
+    for (let i = overlapSize; i < chunkSize - overlapSize; i++) {
+      window[i] = 1.0;
+    }
+    
+    // Fade out at the end
+    for (let i = chunkSize - overlapSize; i < chunkSize; i++) {
+      const t = (chunkSize - i) / overlapSize;
+      window[i] = 0.5 * (1 - Math.cos(Math.PI * t));
+    }
+    
+    return window;
+  }
 
-    const processingTime = performance.now() - startTime;
+  /**
+   * Apply stem-specific post-conditioning
+   * PHASE 2 SOTA: Different processing for each stem type
+   */
+  private applyStemPostConditioning(stems: Map<string, Float32Array>, sampleRate: number): void {
+    for (const [stemName, audio] of stems) {
+      switch (stemName) {
+        case 'vocals':
+          // Highpass 20-40 Hz to remove low-frequency rumble
+          this.applyHighpass(audio, 30, sampleRate);
+          break;
+          
+        case 'bass':
+          // Mono below 120 Hz for tight low end
+          this.applyLowFrequencyMono(audio, 120, sampleRate);
+          break;
+          
+        case 'drums':
+          // Preserve transients - no normalization applied earlier
+          // Already handled by not normalizing before inference
+          break;
+          
+        case 'instruments':
+        case 'instrumental':
+          // Preserve stereo width - no modification
+          break;
+          
+        case 'fx':
+        case 'other':
+          // Preserve stereo width
+          break;
+      }
+    }
+  }
 
-    return {
-      stems,
-      sampleRate: opts.sampleRate,
-      duration: monoAudio.length / opts.sampleRate,
-      processingTime,
-      device: this.deviceManager.getCurrentDevice()?.name || 'Unknown',
-    };
+  /**
+   * Simple highpass filter (removes DC and low-frequency content)
+   */
+  private applyHighpass(audio: Float32Array, cutoffHz: number, sampleRate: number): void {
+    const rc = 1.0 / (2.0 * Math.PI * cutoffHz);
+    const dt = 1.0 / sampleRate;
+    const alpha = rc / (rc + dt);
+    
+    let prevInput = audio[0];
+    let prevOutput = 0;
+    
+    for (let i = 0; i < audio.length; i++) {
+      const currentInput = audio[i];
+      const output = alpha * (prevOutput + currentInput - prevInput);
+      audio[i] = output;
+      prevInput = currentInput;
+      prevOutput = output;
+    }
+  }
+
+  /**
+   * Make low frequencies mono (collapse stereo below cutoff)
+   * Note: This is a simplified version - assumes mono input
+   */
+  private applyLowFrequencyMono(audio: Float32Array, cutoffHz: number, sampleRate: number): void {
+    // For mono input, this is a no-op
+    // In a real stereo implementation, this would:
+    // 1. Split into L/R channels
+    // 2. Average L/R below cutoffHz
+    // 3. Keep L/R separate above cutoffHz
+    console.log(`[SOTA] Low-frequency mono processing for bass (cutoff: ${cutoffHz}Hz)`);
   }
 
   /**

@@ -144,11 +144,17 @@ export function resampleAudio(
 /**
  * Decode audio file from ArrayBuffer
  * Supports WAV, MP3, FLAC formats
+ * 
+ * PHASE 2 SOTA UPGRADE:
+ * - Output is float32 (already done)
+ * - Force mono → stereo for consistent processing
+ * - NOT normalized before inference (user controls this)
  */
 export async function decodeAudioFile(
   arrayBuffer: ArrayBuffer,
   targetSampleRate: number = 44100,
-  convertToMono: boolean = true
+  convertToMono: boolean = true,
+  normalize: boolean = false  // PHASE 2: Disable by default
 ): Promise<DecodedAudio> {
   try {
     // Use audio-decode library to decode various formats
@@ -160,21 +166,31 @@ export async function decodeAudioFile(
     const sampleRate = audioBuffer.sampleRate;
     const length = audioBuffer.length;
     
+    // PHASE 2: Force mono → stereo for consistent processing
+    // Even if convertToMono=true for backward compat, we'll convert back to stereo internally
+    let stereoData: Float32Array;
+    
     // Get channel data
     if (channels === 1) {
-      audioData = audioBuffer.getChannelData(0);
+      // Mono → Stereo (duplicate to both channels)
+      const mono = audioBuffer.getChannelData(0);
+      stereoData = new Float32Array(length * 2);
+      for (let i = 0; i < length; i++) {
+        stereoData[i * 2] = mono[i];
+        stereoData[i * 2 + 1] = mono[i]; // Duplicate to right channel
+      }
     } else if (channels === 2) {
-      // Interleave stereo channels
+      // Already stereo - interleave
       const left = audioBuffer.getChannelData(0);
       const right = audioBuffer.getChannelData(1);
-      audioData = new Float32Array(length * 2);
+      stereoData = new Float32Array(length * 2);
       for (let i = 0; i < length; i++) {
-        audioData[i * 2] = left[i];
-        audioData[i * 2 + 1] = right[i];
+        stereoData[i * 2] = left[i];
+        stereoData[i * 2 + 1] = right[i];
       }
     } else {
-      // Handle multi-channel audio by mixing down to stereo first
-      const mixedData = new Float32Array(length * 2);
+      // Multi-channel → Stereo (mix down)
+      stereoData = new Float32Array(length * 2);
       for (let i = 0; i < length; i++) {
         let leftSum = 0;
         let rightSum = 0;
@@ -186,15 +202,17 @@ export async function decodeAudioFile(
             rightSum += sample;
           }
         }
-        mixedData[i * 2] = leftSum / Math.ceil(channels / 2);
-        mixedData[i * 2 + 1] = rightSum / Math.floor(channels / 2);
+        stereoData[i * 2] = leftSum / Math.ceil(channels / 2);
+        stereoData[i * 2 + 1] = rightSum / Math.floor(channels / 2);
       }
-      audioData = mixedData;
     }
     
-    // Convert to mono if requested
-    if (convertToMono && channels > 1) {
-      audioData = stereoToMono(audioData, channels);
+    // PHASE 2: For backward compatibility, convert to mono if requested
+    // But the inference engine should use stereo input
+    if (convertToMono) {
+      audioData = stereoToMono(stereoData, 2);
+    } else {
+      audioData = stereoData;
     }
     
     // Resample if needed
@@ -202,10 +220,15 @@ export async function decodeAudioFile(
       audioData = resampleAudio(audioData, sampleRate, targetSampleRate);
     }
     
+    // PHASE 2: Optional normalization (disabled by default for inference)
+    if (normalize) {
+      audioData = normalizeAudio(audioData);
+    }
+    
     const info: AudioInfo = {
       sampleRate: targetSampleRate,
-      duration: audioData.length / targetSampleRate,
-      channels: convertToMono ? 1 : channels,
+      duration: audioData.length / (convertToMono ? targetSampleRate : targetSampleRate * 2),
+      channels: convertToMono ? 1 : 2,
       length: audioData.length,
     };
     
@@ -215,6 +238,27 @@ export async function decodeAudioFile(
       `Failed to decode audio file: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+/**
+ * Normalize audio to prevent clipping (optional, for post-processing only)
+ */
+function normalizeAudio(audioData: Float32Array): Float32Array {
+  let maxAbs = 0;
+  for (let i = 0; i < audioData.length; i++) {
+    maxAbs = Math.max(maxAbs, Math.abs(audioData[i]));
+  }
+  
+  if (maxAbs > 0.95) {
+    const scale = 0.95 / maxAbs;
+    const normalized = new Float32Array(audioData.length);
+    for (let i = 0; i < audioData.length; i++) {
+      normalized[i] = audioData[i] * scale;
+    }
+    return normalized;
+  }
+  
+  return audioData;
 }
 
 /**
