@@ -331,3 +331,39 @@ export async function getTierCapabilities(tier: MembershipTier): Promise<TierCap
   
   return capabilities;
 }
+
+/**
+ * Find membership by Stripe subscription ID
+ * PHASE 2: For webhook handlers
+ */
+export async function getMembershipBySubscriptionId(
+  subscriptionId: string
+): Promise<Membership | null> {
+  // In production: SELECT * FROM memberships WHERE stripe_subscription_id = $1
+  for (const membership of membershipsStore.values()) {
+    if (membership.stripeSubscriptionId === subscriptionId) {
+      return membership;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find membership by Stripe customer ID
+ * PHASE 2: For webhook handlers
+ */
+export async function getMembershipByCustomerId(
+  customerId: string
+): Promise<Membership | null> {
+  // In production: SELECT * FROM memberships WHERE stripe_customer_id = $1
+  for (const membership of membershipsStore.values()) {
+    if (membership.stripeCustomerId === customerId) {
+      return membership;
+    }
+  }
+  return null;
+}
+
+// Initialize on module load
+initializeCapabilities();
+initializeTierCapabilities();

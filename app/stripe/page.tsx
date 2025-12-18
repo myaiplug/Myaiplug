@@ -1,9 +1,23 @@
 "use client";
 
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 
 export default function StripePage() {
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState<'loading' | 'success' | 'cancelled' | 'info'>('info');
+
+  useEffect(() => {
+    // Check for success/cancelled query params
+    if (searchParams.get('success') === 'true') {
+      setStatus('success');
+    } else if (searchParams.get('cancelled') === 'true') {
+      setStatus('cancelled');
+    }
+  }, [searchParams]);
+
   return (
     <>
       <Header />
@@ -17,12 +31,56 @@ export default function StripePage() {
             <span className="mr-2">←</span> Back to Home
           </Link>
 
+          {/* Success Message */}
+          {status === 'success' && (
+            <div className="mb-12 p-6 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <h1 className="text-3xl font-display font-bold mb-4 text-green-400">
+                🎉 Welcome to Pro!
+              </h1>
+              <p className="text-gray-300 leading-relaxed">
+                Your subscription has been activated successfully. You now have access to:
+              </p>
+              <ul className="list-disc list-inside mt-4 space-y-2 text-gray-300">
+                <li>50 stem separations per day</li>
+                <li>5-stem model (vocals, drums, bass, instruments, FX)</li>
+                <li>Up to 10-minute audio files</li>
+                <li>Priority processing</li>
+              </ul>
+              <Link 
+                href="/dashboard" 
+                className="inline-block mt-6 px-6 py-3 bg-myai-accent hover:bg-myai-primary transition-colors rounded-lg font-semibold"
+              >
+                Go to Dashboard
+              </Link>
+            </div>
+          )}
+
+          {/* Cancelled Message */}
+          {status === 'cancelled' && (
+            <div className="mb-12 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <h1 className="text-3xl font-display font-bold mb-4 text-yellow-400">
+                Checkout Cancelled
+              </h1>
+              <p className="text-gray-300 leading-relaxed">
+                Your checkout was cancelled. No charges have been made to your account.
+              </p>
+              <Link 
+                href="/" 
+                className="inline-block mt-6 px-6 py-3 bg-myai-accent hover:bg-myai-primary transition-colors rounded-lg font-semibold"
+              >
+                Return Home
+              </Link>
+            </div>
+          )}
+
           {/* Page Header */}
-          <div className="mb-12">
-            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Stripe <span className="gradient-text">Payment Information</span>
-            </h1>
-          </div>
+          {status === 'info' && (
+            <div className="mb-12">
+              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
+                Stripe <span className="gradient-text">Payment Information</span>
+              </h1>
+            </div>
+          )}
 
           {/* Content */}
           <div className="space-y-8 text-gray-300">
