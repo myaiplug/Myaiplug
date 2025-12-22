@@ -50,7 +50,6 @@ export default function WaveformPlayer({
       cursorWidth: 2,
       height: 80,
       barGap: 2,
-      responsive: true,
       normalize: true,
     });
 
