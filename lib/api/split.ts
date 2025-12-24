@@ -52,18 +52,51 @@ export async function splitAudio(audioFile: File): Promise<SplitAudioResponse> {
     }
 
     // Success - parse response
-    // Note: The actual API might return JSON with URLs or base64
-    // For this implementation, we'll handle the response appropriately
     const data = await response.json();
     
-    // If the API returns URLs, convert them to blobs
+    // Handle different response formats
     if (data.vocals && data.instrumental) {
-      // Assuming the API returns URLs or base64 data
-      // This is a placeholder - adjust based on actual API response
+      let vocalsBlob: Blob;
+      let instrumentalBlob: Blob;
+
+      // If base64 encoded
+      if (typeof data.vocals === 'string' && data.vocals.startsWith('data:')) {
+        const vocalsBase64 = data.vocals.split(',')[1];
+        const vocalsBytes = atob(vocalsBase64);
+        const vocalsArray = new Uint8Array(vocalsBytes.length);
+        for (let i = 0; i < vocalsBytes.length; i++) {
+          vocalsArray[i] = vocalsBytes.charCodeAt(i);
+        }
+        vocalsBlob = new Blob([vocalsArray], { type: 'audio/wav' });
+      } else if (typeof data.vocals === 'string') {
+        // If URL, fetch it
+        const vocalsResponse = await fetch(data.vocals);
+        vocalsBlob = await vocalsResponse.blob();
+      } else {
+        vocalsBlob = data.vocals;
+      }
+
+      // Same for instrumental
+      if (typeof data.instrumental === 'string' && data.instrumental.startsWith('data:')) {
+        const instrumentalBase64 = data.instrumental.split(',')[1];
+        const instrumentalBytes = atob(instrumentalBase64);
+        const instrumentalArray = new Uint8Array(instrumentalBytes.length);
+        for (let i = 0; i < instrumentalBytes.length; i++) {
+          instrumentalArray[i] = instrumentalBytes.charCodeAt(i);
+        }
+        instrumentalBlob = new Blob([instrumentalArray], { type: 'audio/wav' });
+      } else if (typeof data.instrumental === 'string') {
+        // If URL, fetch it
+        const instrumentalResponse = await fetch(data.instrumental);
+        instrumentalBlob = await instrumentalResponse.blob();
+      } else {
+        instrumentalBlob = data.instrumental;
+      }
+
       return {
         success: true,
-        vocals: data.vocals instanceof Blob ? data.vocals : new Blob([]),
-        instrumental: data.instrumental instanceof Blob ? data.instrumental : new Blob([]),
+        vocals: vocalsBlob,
+        instrumental: instrumentalBlob,
       };
     }
 

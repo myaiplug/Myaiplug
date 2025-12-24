@@ -8,6 +8,7 @@ import {
   isSupportedFormat, 
   validateAudioConstraints 
 } from '@/lib/audio-processing/utils/audio-decoder';
+import { encodeToBase64WAV } from '@/lib/audio-processing/utils/audio-encoder';
 
 /**
  * POST /api/audio/separate
@@ -177,6 +178,8 @@ export async function POST(request: NextRequest) {
 
     // Prepare response with stem information
     const stems: Record<string, any> = {};
+    const stemAudioData: Record<string, string> = {}; // For base64 encoded audio
+    
     for (const [stemName, stemAudio] of result.stems) {
       stems[stemName] = {
         name: stemName,
@@ -186,6 +189,12 @@ export async function POST(request: NextRequest) {
         filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_stemsplit_${stemName}.${format}`,
         available: true,
       };
+      
+      // Encode audio to base64 WAV for immediate download
+      // Only for 2-stem (vocals + instrumental)
+      if (format === 'wav' && (stemName === 'vocals' || stemName === 'instrumental')) {
+        stemAudioData[stemName] = encodeToBase64WAV(stemAudio, result.sampleRate);
+      }
     }
 
     // Log benchmark details if debug mode is enabled
@@ -211,6 +220,9 @@ export async function POST(request: NextRequest) {
       tier,
       modelVariant,
       stems,
+      // Include base64 encoded audio for immediate download
+      vocals: stemAudioData.vocals,
+      instrumental: stemAudioData.instrumental,
       processing: {
         duration: result.duration,
         processingTime,
