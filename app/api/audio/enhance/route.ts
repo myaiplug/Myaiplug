@@ -106,11 +106,6 @@ export async function POST(request: NextRequest) {
     let actualSampleRate: number;
     let actualDuration: number;
     
-    // NOTE: Phase stub - create test audio data
-    const dummyLength = 44100 * 3;
-    const audioData = new Float32Array(dummyLength);
-    for (let i = 0; i < audioData.length; i++) {
-      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5;
     try {
       console.log('Decoding audio file...');
       const decoded = await decodeAudioFile(arrayBuffer, 44100, true);
