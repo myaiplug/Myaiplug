@@ -4,6 +4,7 @@ import { getLevelFromPoints } from '../constants/gamification';
 import { awardPoints } from './pointsEngine';
 import { initializeUserBadges } from './badgeSystem';
 import { generateSecureId, generateSessionToken } from '../utils/secureId';
+import { getSubscriptionByUserId, hasActiveSubscription } from './subscriptionService';
 
 export interface CreateUserParams {
   email: string;
@@ -152,6 +153,17 @@ export function getUserById(userId: string): User | null {
 }
 
 /**
+ * Get user by email
+ */
+export function getUserByEmail(email: string): User | null {
+  const userId = emailIndex.get(email.toLowerCase());
+  if (!userId) {
+    return null;
+  }
+  return usersStore.get(userId) || null;
+}
+
+/**
  * Get user by handle
  */
 export function getUserByHandle(handle: string): User | null {
@@ -226,6 +238,25 @@ export function updateUserTier(userId: string, tier: UserTier): User | null {
   }
 
   user.tier = tier;
+  return user;
+}
+
+/**
+ * Update user tier based on subscription status
+ */
+export function syncUserTierWithSubscription(userId: string): User | null {
+  const user = usersStore.get(userId);
+  if (!user) {
+    return null;
+  }
+
+  const isActive = hasActiveSubscription(userId);
+  const newTier: UserTier = isActive ? 'pro' : 'free';
+  
+  if (user.tier !== newTier) {
+    user.tier = newTier;
+  }
+  
   return user;
 }
 
