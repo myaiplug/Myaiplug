@@ -1,18 +1,54 @@
 // Utility functions for formatting and calculations
 
-// Format time saved in human-readable format
+// Format time saved in human-readable format (days, hours, minutes, seconds)
 export function formatTimeSaved(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  } else {
-    return `${secs}s`;
+  const parts: string[] = [];
+  
+  if (days > 0) {
+    parts.push(`${days}d`);
   }
+  if (hours > 0 || days > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0 || hours > 0 || days > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (secs > 0 || parts.length === 0) {
+    parts.push(`${secs}s`);
+  }
+  
+  // Return most significant units (max 2 units for readability)
+  return parts.slice(0, 2).join(' ');
+}
+
+// Format time saved with full details (days, hours, minutes, seconds)
+export function formatTimeSavedDetailed(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  const parts: string[] = [];
+  
+  if (days > 0) {
+    parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+  }
+  if (secs > 0 || parts.length === 0) {
+    parts.push(`${secs} second${secs !== 1 ? 's' : ''}`);
+  }
+  
+  return parts.join(', ');
 }
 
 // Format time saved as a compact counter

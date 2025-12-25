@@ -123,6 +123,24 @@ export async function completeJob(
     console.error('Failed to update job stats:', error);
   }
 
+  // Log job completion activity
+  try {
+    const { logActivity } = await import('./activityLogService');
+    logActivity({
+      userId: job.userId,
+      activityType: 'job_completed',
+      metadata: {
+        jobId: job.id,
+        jobType: job.type,
+        timeSavedSec: job.timeSavedSec,
+        processingSeconds,
+        pointsAwarded: pointsEntry?.points || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to log job completion activity:', error);
+  }
+
   return {
     job,
     pointsAwarded: pointsEntry?.points || 0,

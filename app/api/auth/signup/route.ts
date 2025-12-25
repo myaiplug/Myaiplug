@@ -1,6 +1,7 @@
 // Authentication API - Sign Up
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser } from '@/lib/services/userService';
+import { logUserSignup } from '@/lib/services/activityLogService';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import { trackUserIP } from '@/lib/services/antiAbuseService';
 
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
     // Track IP
     trackUserIP(result.user.id, clientIP);
 
+    // Log successful signup with full user details
+    logUserSignup(result.user, result.profile, clientIP);
+
     // Return success with session token
     return NextResponse.json({
       success: true,
@@ -90,11 +94,13 @@ export async function POST(request: NextRequest) {
         email: result.user.email,
         handle: result.user.handle,
         tier: result.user.tier,
+        createdAt: result.user.createdAt,
       },
       profile: {
         level: result.profile.level,
         pointsTotal: result.profile.pointsTotal,
         timeSavedSecTotal: result.profile.timeSavedSecTotal,
+        totalJobs: result.profile.totalJobs,
         badges: result.profile.badges,
       },
       sessionToken: result.sessionToken,

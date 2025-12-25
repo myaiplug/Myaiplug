@@ -1,6 +1,7 @@
 // Authentication API - Sign In
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/lib/services/userService';
+import { logUserLogin } from '@/lib/services/activityLogService';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log successful login with full user details
+    logUserLogin(result.user, result.profile, clientIP);
+
     // Return success with session token
     return NextResponse.json({
       success: true,
@@ -54,11 +58,13 @@ export async function POST(request: NextRequest) {
         tier: result.user.tier,
         avatarUrl: result.user.avatarUrl,
         bio: result.user.bio,
+        createdAt: result.user.createdAt,
       },
       profile: {
         level: result.profile.level,
         pointsTotal: result.profile.pointsTotal,
         timeSavedSecTotal: result.profile.timeSavedSecTotal,
+        totalJobs: result.profile.totalJobs,
         badges: result.profile.badges,
       },
       sessionToken: result.sessionToken,
