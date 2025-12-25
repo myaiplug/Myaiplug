@@ -1,6 +1,7 @@
 // Leaderboard API
 import { NextRequest, NextResponse } from 'next/server';
 import { generateLeaderboard } from '@/lib/services/leaderboardService';
+import { seedLeaderboard, isLeaderboardSeeded } from '@/lib/services/leaderboardSeedService';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import type { LeaderboardType, LeaderboardPeriod } from '@/lib/types';
 
@@ -8,6 +9,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    // Seed leaderboard with demo data if not already seeded
+    if (!isLeaderboardSeeded()) {
+      await seedLeaderboard();
+    }
+
     // Get client IP for rate limiting
     const clientIP = getClientIP(request.headers);
 
@@ -29,7 +35,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'time_saved') as LeaderboardType;
     const period = (searchParams.get('period') || 'alltime') as LeaderboardPeriod;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 100;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20; // Default to top 20
     
     // Optional: get user's rank
     const userId = searchParams.get('userId');

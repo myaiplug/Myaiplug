@@ -114,6 +114,15 @@ export async function completeJob(
     });
   }
 
+  // Update user profile with job stats (for leaderboard)
+  // Import incrementJobStats from userService
+  try {
+    const { incrementJobStats } = await import('./userService');
+    incrementJobStats(job.userId, job.timeSavedSec);
+  } catch (error) {
+    console.error('Failed to update job stats:', error);
+  }
+
   return {
     job,
     pointsAwarded: pointsEntry?.points || 0,

@@ -48,6 +48,7 @@ export interface Profile {
   level: number;
   pointsTotal: number;
   timeSavedSecTotal: number;
+  totalJobs: number;
   badges: Badge[];
   privacyOptOut: boolean;
   membership?: 'free' | 'pro' | 'vip';

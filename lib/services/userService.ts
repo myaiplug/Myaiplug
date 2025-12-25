@@ -61,6 +61,7 @@ export async function createUser(params: CreateUserParams): Promise<AuthResult> 
     level: 1,
     pointsTotal: 0,
     timeSavedSecTotal: 0,
+    totalJobs: 0,
     badges: [],
     privacyOptOut: false,
   };
@@ -261,11 +262,11 @@ export function syncUserTierWithSubscription(userId: string): User | null {
 }
 
 /**
- * Update profile stats (points, time saved)
+ * Update profile stats (points, time saved, jobs)
  */
 export function updateProfileStats(
   userId: string,
-  updates: Partial<Pick<Profile, 'pointsTotal' | 'timeSavedSecTotal'>>
+  updates: Partial<Pick<Profile, 'pointsTotal' | 'timeSavedSecTotal' | 'totalJobs'>>
 ): Profile | null {
   const profile = profilesStore.get(userId);
   if (!profile) {
@@ -279,6 +280,33 @@ export function updateProfileStats(
 
   if (updates.timeSavedSecTotal !== undefined) {
     profile.timeSavedSecTotal = updates.timeSavedSecTotal;
+  }
+
+  if (updates.totalJobs !== undefined) {
+    profile.totalJobs = updates.totalJobs;
+  }
+
+  return profile;
+}
+
+/**
+ * Increment job count and time saved for user
+ */
+export function incrementJobStats(userId: string, timeSavedSec: number): Profile | null {
+  const profile = profilesStore.get(userId);
+  if (!profile) {
+    return null;
+  }
+
+  profile.totalJobs += 1;
+  profile.timeSavedSecTotal += timeSavedSec;
+
+  // Invalidate leaderboard cache when stats change
+  try {
+    const { invalidateLeaderboardCache } = require('./leaderboardService');
+    invalidateLeaderboardCache('time_saved');
+  } catch (error) {
+    // Leaderboard service not available, ignore
   }
 
   return profile;
