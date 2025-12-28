@@ -82,12 +82,6 @@ async function generateTimeSavedLeaderboard(period: LeaderboardPeriod): Promise<
       continue;
     }
 
-    // Only include users with active subscriptions
-    // (currently checks for active/trialing status)
-    if (!hasActiveSubscription(userId)) {
-      continue;
-    }
-
     const user = usersStore.get(userId);
     if (!user) continue;
 
