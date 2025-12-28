@@ -1,5 +1,5 @@
 // Seed leaderboard with demo data
-import { createUser, initializeUser } from './userService';
+import { initializeUser } from './userService';
 import { setProfile, setUser } from './leaderboardService';
 import { upsertSubscription } from './subscriptionService';
 import type { User, Profile } from '../types';
