@@ -128,10 +128,20 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     return;
   }
 
+  // Ensure subscription has at least one item before accessing it
+  const firstItem = subscription.items?.data && subscription.items.data.length > 0
+    ? subscription.items.data[0]
+    : null;
+
+  if (!firstItem || !firstItem.price) {
+    console.error('Subscription has no valid items or price information:', subscription.id);
+    return;
+  }
+
   // Create subscription record
-  const priceId = typeof subscription.items.data[0].price === 'string'
-    ? subscription.items.data[0].price
-    : subscription.items.data[0].price.id;
+  const priceId = typeof firstItem.price === 'string'
+    ? firstItem.price
+    : firstItem.price.id;
 
   upsertSubscription({
     userId,
