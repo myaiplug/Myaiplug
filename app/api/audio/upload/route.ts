@@ -5,23 +5,6 @@ import { getUserCredits } from '@/lib/services/referralService';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import { generateSecureId } from '@/lib/utils/secureId';
 
-// Token usage tracking
-interface TokenUsageEntry {
-  userId: string;
-  action: string;
-  tokensUsed: number;
-  timestamp: Date;
-  details?: Record<string, unknown>;
-}
-
-const tokenUsageLog: TokenUsageEntry[] = [];
-
-// Log token usage (internal function)
-function logTokenUsage(entry: TokenUsageEntry): void {
-  tokenUsageLog.push(entry);
-  console.log(`[Token Usage] User: ${entry.userId}, Action: ${entry.action}, Tokens: ${entry.tokensUsed}`);
-}
-
 // Simulated audio analysis function
 // In production, this would integrate with actual audio processing libraries
 function analyzeAudio(fileName: string, fileSize: number) {
