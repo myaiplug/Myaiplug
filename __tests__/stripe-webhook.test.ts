@@ -24,7 +24,6 @@ import {
 
 import {
   createUser,
-  getUserById,
   syncUserTierWithSubscription,
 } from '../lib/services/userService';
 
