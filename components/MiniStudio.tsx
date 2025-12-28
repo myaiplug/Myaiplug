@@ -373,7 +373,7 @@ export default function MiniStudio() {
       // Validate URL is a relative path starting with our API prefix
       // This prevents open redirect attacks
       const url = processResult.download.url;
-      const isValidRelativePath = url.startsWith('/api/audio/download/') && !url.includes('://') && !url.includes('//');
+      const isValidRelativePath = url.startsWith('/api/audio/download/') && !url.includes('://') && !url.startsWith('//');
       
       if (isValidRelativePath) {
         // Show info about the download
