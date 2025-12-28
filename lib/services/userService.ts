@@ -4,7 +4,7 @@ import { getLevelFromPoints } from '../constants/gamification';
 import { awardPoints } from './pointsEngine';
 import { initializeUserBadges } from './badgeSystem';
 import { generateSecureId, generateSessionToken } from '../utils/secureId';
-import { getSubscriptionByUserId, hasActiveSubscription } from './subscriptionService';
+import { hasActiveSubscription } from './subscriptionService';
 
 export interface CreateUserParams {
   email: string;
