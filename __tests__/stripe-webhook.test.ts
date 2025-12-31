@@ -12,10 +12,8 @@ import {
 } from '../lib/services/subscriptionService';
 
 import {
-  grantTokens,
   getTokenBalance,
   grantMonthlyProTokens,
-  TOKEN_AMOUNTS,
   deductTokens,
   freezeTokenUsage,
   unfreezeTokenUsage,

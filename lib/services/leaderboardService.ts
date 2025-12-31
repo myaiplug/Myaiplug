@@ -1,6 +1,7 @@
 // Leaderboard ranking system
 import type { LeaderboardEntry, LeaderboardType, LeaderboardPeriod, Profile, Referral, Creation } from '../types';
 import { hasActiveSubscription } from './subscriptionService';
+import { registerCacheInvalidation } from './cacheInvalidationService';
 
 export interface LeaderboardOptions {
   type: LeaderboardType;
@@ -23,6 +24,22 @@ const profilesStore = new Map<string, Profile>();
 const referralsStore = new Map<string, Referral[]>();
 const creationsStore = new Map<string, Creation[]>();
 const usersStore = new Map<string, { handle: string; avatarUrl: string | null }>();
+
+// Register cache invalidation callbacks
+registerCacheInvalidation('time_saved', () => {
+  leaderboardCache.delete('time_saved_weekly');
+  leaderboardCache.delete('time_saved_alltime');
+});
+
+registerCacheInvalidation('referrals', () => {
+  leaderboardCache.delete('referrals_weekly');
+  leaderboardCache.delete('referrals_alltime');
+});
+
+registerCacheInvalidation('popularity', () => {
+  leaderboardCache.delete('popularity_weekly');
+  leaderboardCache.delete('popularity_alltime');
+});
 
 /**
  * Generate and cache leaderboard

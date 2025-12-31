@@ -1,4 +1,5 @@
 // User activity logging service
+import { randomUUID } from 'crypto';
 import type { User, Profile } from '../types';
 import { logger } from '../utils/logger';
 
@@ -15,7 +16,6 @@ export interface ActivityLog {
 
 // In-memory activity log store (would be persisted to database in production)
 const activityLogs = new Map<string, ActivityLog[]>();
-let logCounter = 0;
 
 /**
  * Log user activity
@@ -29,7 +29,7 @@ export function logActivity(params: {
   const { userId, activityType, ipAddress, metadata } = params;
   
   const log: ActivityLog = {
-    id: `log_${Date.now()}_${logCounter++}`,
+    id: randomUUID(),
     userId,
     activityType,
     timestamp: new Date(),

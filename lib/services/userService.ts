@@ -302,12 +302,8 @@ export function incrementJobStats(userId: string, timeSavedSec: number): Profile
   profile.timeSavedSecTotal += timeSavedSec;
 
   // Invalidate leaderboard cache when stats change
-  try {
-    const { invalidateLeaderboardCache } = require('./leaderboardService');
-    invalidateLeaderboardCache('time_saved');
-  } catch (error) {
-    // Leaderboard service not available, ignore
-  }
+  const { invalidateCache } = require('./cacheInvalidationService');
+  invalidateCache('time_saved');
 
   return profile;
 }
