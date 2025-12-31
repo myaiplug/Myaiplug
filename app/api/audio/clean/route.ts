@@ -93,7 +93,11 @@ export async function POST(request: NextRequest) {
           maxSize,
           sizeMB: parseFloat(sizeMB),
         },
-    // Validate file size
+        { status: 400 }
+      );
+    }
+
+    // Validate file size constraints
     const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
     if (!sizeValidation.valid) {
       return NextResponse.json(

@@ -1,5 +1,6 @@
 // User activity logging service
 import type { User, Profile } from '../types';
+import { logger } from '../utils/logger';
 
 export type ActivityType = 'signup' | 'login' | 'logout' | 'profile_update' | 'job_completed' | 'token_grant' | 'subscription_change';
 
@@ -41,8 +42,15 @@ export function logActivity(params: {
   userLogs.push(log);
   activityLogs.set(userId, userLogs);
 
-  // Console log for server monitoring
-  console.log(`[ACTIVITY] ${activityType.toUpperCase()} - User: ${userId}, IP: ${ipAddress || 'N/A'}`, metadata || '');
+  // Log activity using structured logger
+  logger.info(`Activity: ${activityType.toUpperCase()}`, {
+    metadata: {
+      userId,
+      activityType,
+      ipAddress,
+      ...metadata,
+    },
+  });
 
   return log;
 }
