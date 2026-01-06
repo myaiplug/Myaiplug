@@ -55,14 +55,14 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
     try {
       // Initialize AudioContext if not already done
       if (!audioContextRef.current) {
-        // Create AudioContext with proper webkit polyfill
-        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+        // Use consistent pattern with rest of codebase
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         
-        if (!AudioContextClass) {
+        if (!AudioContext) {
           throw new Error('Web Audio API is not supported in this browser');
         }
         
-        audioContextRef.current = new AudioContextClass();
+        audioContextRef.current = new AudioContext();
       }
       const audioContext = audioContextRef.current;
 
@@ -96,6 +96,7 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
       // Create new file with proper filename handling
       const originalName = file.name || 'audio';
       const lastDotIndex = originalName.lastIndexOf('.');
+      // Handle all cases: no extension (-1), extension at start (0), or normal case (>0)
       const baseName = lastDotIndex > 0 ? originalName.substring(0, lastDotIndex) : originalName;
       const trimmedFileName = `${baseName}_demo_20s.wav`;
       
