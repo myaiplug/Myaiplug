@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserBySession } from '@/lib/services/userService';
 import { createJob, simulateJobProcessing } from '@/lib/services/jobService';
-import { getUserCredits } from '@/lib/services/referralService';
+import { getUserCredits, deductUserCredits } from '@/lib/services/referralService';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import { calculateJobCost } from '@/lib/constants/pricing';
 import type { JobType } from '@/lib/types';
@@ -115,90 +115,6 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'No audio file provided' },
         { status: 400 }
       );
-import { calculateJobCost } from '@/lib/constants/pricing';
-import { TIME_SAVED_BASELINES, POINT_EVENTS } from '@/lib/constants/gamification';
-import { awardPoints } from '@/lib/services/pointsEngine';
-import { createJob, completeJob } from '@/lib/services/jobService';
-import { updateProfileStats } from '@/lib/services/userService';
-
-// Simulated audio analysis function
-function analyzeAudio(fileName: string, fileSize: number) {
-  const genres = ['Hip-Hop/Trap', 'Electronic', 'Pop', 'Rock', 'R&B', 'Jazz', 'Classical'];
-  const moods = ['Energetic & Dark', 'Chill & Relaxing', 'Upbeat & Happy', 'Melancholic', 'Aggressive', 'Ambient'];
-  
-  const genreIndex = fileSize % genres.length;
-  const moodIndex = (fileSize * 2) % moods.length;
-  
-  const durationSeconds = 150 + (fileSize % 180);
-  const minutes = Math.floor(durationSeconds / 60);
-  const seconds = durationSeconds % 60;
-  
-  return {
-    title: fileName.replace(/\.[^/.]+$/, ''),
-    genre: genres[genreIndex],
-    mood: moods[moodIndex],
-    duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
-    bpm: 120 + (fileSize % 60),
-    key: ['C', 'D', 'E', 'F', 'G', 'A', 'B'][fileSize % 7] + [' Major', ' Minor'][fileSize % 2],
-  };
-}
-
-// Apply audio effects (simulated)
-function applyAudioEffects(effects: string[]): { 
-  effectsApplied: string[];
-  effectsDescription: string;
-  qualityMetrics: {
-    noiseReduction?: string;
-    loudnessLUFS?: number;
-    bassEnhancement?: string;
-  };
-} {
-  const effectsApplied: string[] = [];
-  const qualityMetrics: any = {};
-  
-  if (effects.includes('clean')) {
-    effectsApplied.push('Audio Cleaning');
-    qualityMetrics.noiseReduction = '85% noise reduction, artifacts removed';
-  }
-  
-  if (effects.includes('loudness')) {
-    effectsApplied.push('Loudness Normalization');
-    qualityMetrics.loudnessLUFS = -14.0; // Spotify standard
-  }
-  
-  if (effects.includes('bass_boost')) {
-    effectsApplied.push('Bass Boost');
-    qualityMetrics.bassEnhancement = '+6dB boost at 60-120Hz, no clipping';
-  }
-  
-  const effectsDescription = effectsApplied.length > 0 
-    ? effectsApplied.join(', ')
-    : 'No effects applied';
-  
-  return { effectsApplied, effectsDescription, qualityMetrics };
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-    const file = formData.get('audio') as File;
-    const preset = formData.get('preset') as string || 'basic_chain';
-    const effectsJson = formData.get('effects') as string || '[]';
-    
-    if (!file) {
-      return NextResponse.json(
-        { error: 'No audio file provided' },
-        { status: 400 }
-      );
-    }
-
-    // Parse effects
-    let effects: string[] = [];
-    try {
-      effects = JSON.parse(effectsJson);
-    } catch (e) {
-      console.warn('Failed to parse effects, using default');
-      effects = ['clean'];
     }
 
     // Validate file type
@@ -208,9 +124,6 @@ export async function POST(request: NextRequest) {
     if (!validTypes.includes(file.type) && !file.name.match(validExtensions)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file type. Supported: MP3, WAV, FLAC, M4A, OGG, WebM' },
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
         { status: 400 }
       );
     }
@@ -220,10 +133,6 @@ export async function POST(request: NextRequest) {
     if (file.size > maxSize) {
       return NextResponse.json(
         { success: false, error: 'File too large. Maximum size is 50MB.' },
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB' },
         { status: 400 }
       );
     }
@@ -254,8 +163,10 @@ export async function POST(request: NextRequest) {
     let isAuthenticated = false;
 
     // Get client IP for guest rate limiting
+    // Use x-real-ip first (Vercel/production), then x-forwarded-for as fallback
+    const realIp = request.headers.get('x-real-ip');
     const forwardedFor = request.headers.get('x-forwarded-for');
-    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown';
+    const clientIp = realIp || (forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown');
 
     if (sessionToken) {
       const authResult = await getUserBySession(sessionToken);
@@ -281,6 +192,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Rate limiting for guest users based on IP
       // Guests get fewer requests per window than authenticated users
+      // Note: In production, consider adding CAPTCHA for additional anti-abuse protection
       const guestRateLimit = checkRateLimit(
         `guest_audio_process_${clientIp}`,
         Math.floor(RATE_LIMITS.JOB_CREATE.max / 3), // 1/3 of normal rate limit
@@ -307,6 +219,20 @@ export async function POST(request: NextRequest) {
         },
         { status: 402 }
       );
+    }
+
+    // Deduct credits before processing (only for authenticated users)
+    let updatedCredits = userCredits;
+    if (isAuthenticated) {
+      try {
+        updatedCredits = deductUserCredits(userId, tokenCost);
+      } catch (error) {
+        console.error('Credit deduction error:', error);
+        return NextResponse.json(
+          { success: false, error: 'Failed to deduct credits' },
+          { status: 500 }
+        );
+      }
     }
 
     // Create job record
@@ -360,7 +286,7 @@ export async function POST(request: NextRequest) {
       },
       processing: {
         tokensUsed: tokenCost,
-        remainingCredits: userCredits.balance - tokenCost,
+        remainingCredits: updatedCredits.balance,
         estimatedDuration: `${Math.floor(estimatedDurationSec / 60)}:${(estimatedDurationSec % 60).toString().padStart(2, '0')}`,
         timeSaved: jobResult?.job.timeSavedSec ? `${Math.floor(jobResult.job.timeSavedSec / 60)} minutes` : 'N/A',
       },
@@ -383,70 +309,6 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Failed to process audio file',
         details: process.env.NODE_ENV === 'development' ? String(error) : undefined
       },
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Analyze audio
-    const audioAnalysis = analyzeAudio(file.name, file.size);
-    
-    // Apply effects
-    const { effectsApplied, effectsDescription, qualityMetrics } = applyAudioEffects(effects);
-
-    // Calculate duration and credits
-    const durationSeconds = 180; // Simulate 3 minute audio
-    const durationMinutes = durationSeconds / 60;
-    const creditsCharged = calculateJobCost('audio_processing', durationMinutes);
-    const timeSavedMinutes = TIME_SAVED_BASELINES.audio_processing;
-
-    // Generate job ID
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // In a real implementation with authentication:
-    // TODO: Replace with actual authentication system
-    // 1. Get userId from session/token (e.g., from cookies or Authorization header)
-    // 2. Verify user is authenticated
-    // 3. Check user has enough credits in their account
-    // 4. Deduct credits from user account atomically
-    // 5. Create job record in database
-    // 6. Award points via pointsEngine service
-    // 7. Update leaderboard via leaderboardService
-    // 8. Return job ID for tracking
-    
-    // For demo purposes with in-memory storage, we simulate these operations
-    const userId = 'demo_user'; // In production, get from req.headers.authorization or session
-    
-    // Award points using gamification constants
-    // Points for job completion based on processing time
-    const pointsAwarded = POINT_EVENTS.JOB_MEDIUM; // 200 points for medium job (audio processing)
-    
-    // Determine badge based on effects applied (simulated)
-    const badgeEarned = effects.length >= 3 ? 'Audio Master' : 'Audio Processor I';
-
-    // Prepare response
-    const response = {
-      success: true,
-      jobId,
-      fileName: file.name,
-      fileSize: file.size,
-      preset,
-      effects: effectsApplied,
-      effectsDescription,
-      qualityMetrics,
-      audioAnalysis,
-      creditsCharged,
-      timeSavedMinutes,
-      pointsAwarded,
-      badgeEarned,
-      message: `Audio processed successfully with ${effectsApplied.length} effect(s): ${effectsDescription}`,
-      processedFileUrl: `processed_${file.name}`, // In production, this would be a real URL
-    };
-
-    return NextResponse.json(response);
-
-  } catch (error) {
-    console.error('Audio processing error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process audio file' },
       { status: 500 }
     );
   }
@@ -482,33 +344,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-// GET endpoint for testing
-export async function GET() {
-  return NextResponse.json({
-    message: 'Audio processing API endpoint',
-    methods: ['POST'],
-    accepts: 'multipart/form-data',
-    fields: {
-      audio: 'Audio file (required)',
-      preset: 'Preset ID (optional, default: basic_chain)',
-      effects: 'JSON array of effect IDs (optional, e.g., ["clean", "loudness", "bass_boost"])',
-    },
-    availableEffects: [
-      {
-        id: 'clean',
-        name: 'Clean Audio',
-        description: 'Remove noise, artifacts, and unwanted sounds',
-      },
-      {
-        id: 'loudness',
-        name: 'Spotify Loudness',
-        description: 'Normalize to -14 LUFS (Spotify standard)',
-      },
-      {
-        id: 'bass_boost',
-        name: 'Bass Boost',
-        description: 'Enhanced bass without distortion or clipping',
-      },
-    ],
-  });
 }

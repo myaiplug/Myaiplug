@@ -12,7 +12,7 @@ import { syncUserTierWithSubscription, getUserByEmail } from '@/lib/services/use
 
 // Initialize Stripe
 const stripe = env.stripeSecretKey ? new Stripe(env.stripeSecretKey, {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-02-24.acacia',
 }) : null;
 
 /**

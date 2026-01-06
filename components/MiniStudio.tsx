@@ -38,8 +38,6 @@ export default function MiniStudio() {
   const [showTranscription, setShowTranscription] = useState(false);
   const [transcriptionData, setTranscriptionData] = useState<any>(null);
   const [transcribing, setTranscribing] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [audioDuration, setAudioDuration] = useState<number>(10); // in seconds
   const [viewMode, setViewMode] = useState<"simple" | "advanced">("simple"); // Toggle between views
@@ -527,34 +525,6 @@ export default function MiniStudio() {
       }
     } else {
       showToast('No processed file available. Process audio first.');
-    try {
-      setUploadProgress("Loading audio...");
-      setUploadedFile(file);
-      setPlayerFileName(file.name); // Set for fixed player
-      
-      // Load file into audio engine for preview
-      await engineRef.current.loadFromFile(file);
-      await engineRef.current.startPlayers();
-      setIsPlaying(true); // Update playing state
-      
-      // Get audio duration from the loaded buffer
-      const buffer = engineRef.current.getContext().createBufferSource().buffer;
-      if (buffer) {
-        setAudioDuration(Math.ceil(buffer.duration));
-      }
-      
-      setUploadProgress(`Loaded: ${file.name}`);
-      showToast(`Audio loaded: ${file.name.substring(0, 20)}${file.name.length > 20 ? '...' : ''}`);
-      
-      // Auto-switch to FX mode to hear the effects
-      handlePlayState("fx");
-      const mod = modules[currentModule];
-      setPlayerCurrentEffect(mod ? `${mod.name}${currentPresetName ? ': ' + currentPresetName : ''}` : 'Processing');
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadProgress("");
-      setPlayerFileName("");
-      showToast("Failed to load audio file");
     }
   };
 

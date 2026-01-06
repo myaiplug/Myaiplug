@@ -2,33 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserBySession } from '@/lib/services/userService';
 import { getUserCredits } from '@/lib/services/referralService';
 import { getUserJobStats } from '@/lib/services/jobService';
+import type { TokenUsageEntry } from '@/lib/types/tokenUsage';
 
 // NOTE: In-memory storage for demo/development purposes
 // In production, replace with persistent storage (database)
 // This data will be lost on server restarts and won't work in serverless environments
-const tokenUsageLog: Array<{
-  userId: string;
-  action: string;
-  tokensUsed: number;
-  timestamp: Date;
-  jobId?: string;
-  details?: Record<string, unknown>;
-}> = [];
+// Additionally, losing this data can lead to billing discrepancies and inability to track abuse
+const tokenUsageLog: TokenUsageEntry[] = [];
 
 // Internal function to log token usage
-function logTokenUsage(entry: {
-  userId: string;
-  action: string;
-  tokensUsed: number;
-  timestamp: Date;
-  jobId?: string;
-  details?: Record<string, unknown>;
-}): void {
+function logTokenUsage(entry: TokenUsageEntry): void {
   tokenUsageLog.push(entry);
 }
 
 // Internal function to get token usage for a user
-function getTokenUsageForUser(userId: string, limit = 20): typeof tokenUsageLog {
+function getTokenUsageForUser(userId: string, limit = 20): TokenUsageEntry[] {
   return tokenUsageLog
     .filter(e => e.userId === userId)
     .slice(-limit)
@@ -107,12 +95,20 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST - Log token usage (internal use)
+ * POST - Log token usage (internal use only)
  */
 export async function POST(request: NextRequest) {
   try {
-    // This endpoint should only be called internally
-    // In production, add proper authentication/authorization
+    // Require internal API key for authentication
+    const internalApiKey = request.headers.get('x-internal-api-key');
+    if (!process.env.INTERNAL_API_KEY) {
+      console.warn('INTERNAL_API_KEY not set - this endpoint should be protected in production');
+    } else if (internalApiKey !== process.env.INTERNAL_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
     const { userId, action, tokensUsed, jobId, details } = body;

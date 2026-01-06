@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             level: response.profile.level,
             pointsTotal: response.profile.pointsTotal,
             timeSavedSecTotal: response.profile.timeSavedSecTotal,
+            totalJobs: 0, // Default value
             badges: response.profile.badges,
             privacyOptOut: response.profile.privacyOptOut,
           },
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         level: response.profile.level,
         pointsTotal: response.profile.pointsTotal,
         timeSavedSecTotal: response.profile.timeSavedSecTotal,
+        totalJobs: 0, // Default value
         badges: response.profile.badges,
         privacyOptOut: response.profile.privacyOptOut || false,
       },
@@ -128,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         level: response.profile.level,
         pointsTotal: response.profile.pointsTotal,
         timeSavedSecTotal: response.profile.timeSavedSecTotal,
+        totalJobs: 0, // Default value
         badges: response.profile.badges,
         privacyOptOut: response.profile.privacyOptOut || false,
       },
@@ -165,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           level: response.profile.level,
           pointsTotal: response.profile.pointsTotal,
           timeSavedSecTotal: response.profile.timeSavedSecTotal,
+          totalJobs: 0, // Default value
           badges: response.profile.badges,
           privacyOptOut: response.profile.privacyOptOut,
         },

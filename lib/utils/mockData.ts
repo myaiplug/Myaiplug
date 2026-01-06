@@ -44,6 +44,7 @@ export const mockProfile: Profile = {
       awardedAt: new Date('2024-04-20'),
     },
   ],
+  totalJobs: 75,
   privacyOptOut: false,
 };
 
