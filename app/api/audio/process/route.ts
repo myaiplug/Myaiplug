@@ -5,6 +5,15 @@ import { awardPoints } from '@/lib/services/pointsEngine';
 import { createJob, completeJob } from '@/lib/services/jobService';
 import { updateProfileStats } from '@/lib/services/userService';
 
+// Configure route to handle larger payloads (up to 10MB)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 // Simulated audio analysis function
 function analyzeAudio(fileName: string, fileSize: number) {
   const genres = ['Hip-Hop/Trap', 'Electronic', 'Pop', 'Rock', 'R&B', 'Jazz', 'Classical'];

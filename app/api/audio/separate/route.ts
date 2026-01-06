@@ -10,6 +10,15 @@ import {
 } from '@/lib/audio-processing/utils/audio-decoder';
 import { encodeToBase64WAV } from '@/lib/audio-processing/utils/audio-encoder';
 
+// Configure route to handle larger payloads (up to 10MB)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 /**
  * POST /api/audio/separate
  * Separates audio into stems using TF-Locoformer

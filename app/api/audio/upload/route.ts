@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { calculateJobCost } from '@/lib/constants/pricing';
 import { TIME_SAVED_BASELINES } from '@/lib/constants/gamification';
 
+// Configure route to handle larger payloads (up to 10MB)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 // Simulated audio analysis function
 // In production, this would integrate with actual audio processing libraries
 function analyzeAudio(fileName: string, fileSize: number) {
