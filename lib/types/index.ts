@@ -5,6 +5,7 @@ export type UserTier = 'free' | 'pro' | 'studio';
 export type JobType = 
   | 'audio_basic'
   | 'audio_pro'
+  | 'audio_processing'
   | 'reels'
   | 'stem_split'
   | 'cleanup'
@@ -47,8 +48,10 @@ export interface Profile {
   level: number;
   pointsTotal: number;
   timeSavedSecTotal: number;
+  totalJobs: number;
   badges: Badge[];
   privacyOptOut: boolean;
+  membership?: 'free' | 'pro' | 'vip';
 }
 
 export interface Badge {
@@ -64,6 +67,38 @@ export interface Credits {
   balance: number;
   lastResetAt: Date;
   rolloverExpiryAt: Date;
+}
+
+export type SubscriptionStatus = 
+  | 'active' 
+  | 'past_due' 
+  | 'canceled' 
+  | 'incomplete' 
+  | 'incomplete_expired' 
+  | 'trialing' 
+  | 'unpaid'
+  | 'paused';
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  priceId: string;
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TokenGrant {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  subscriptionId?: string;
+  createdAt: Date;
 }
 
 export interface Referral {
@@ -164,3 +199,28 @@ export type RemixFormat =
   | 'voiceover'
   | 'user_video'
   | 'short_form';
+
+export interface UsageLog {
+  id: string;
+  userId: string;
+  action: string;
+  endpoint?: string;
+  timestamp: Date;
+  metadata?: Record<string, any>;
+}
+
+export interface MembershipTier {
+  tier: 'free' | 'pro' | 'vip';
+  limits: {
+    stemSplitPerDay: number;
+    halfScrewPerDay: number;
+    cleanPerDay: number;
+    maxFileDuration: number; // in seconds
+    asyncJobQueue: boolean;
+  };
+  permissions: {
+    twoStemModel: boolean;
+    fiveStemModel: boolean;
+    advancedHalfScrew: boolean;
+  };
+}

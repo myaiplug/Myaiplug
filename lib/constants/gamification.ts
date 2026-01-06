@@ -23,6 +23,7 @@ export const ANTI_FARM_CAPS = {
 export const TIME_SAVED_BASELINES = {
   audio_basic: 6,
   audio_pro: 15,
+  audio_processing: 25, // Effects processing saves significant time
   reels: 20,
   stem_split: 25,
   cleanup: 12,

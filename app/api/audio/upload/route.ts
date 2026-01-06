@@ -4,6 +4,8 @@ import { createJob, simulateJobProcessing } from '@/lib/services/jobService';
 import { getUserCredits } from '@/lib/services/referralService';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/services/antiAbuseService';
 import { generateSecureId } from '@/lib/utils/secureId';
+import { calculateJobCost } from '@/lib/constants/pricing';
+import { TIME_SAVED_BASELINES } from '@/lib/constants/gamification';
 
 // Simulated audio analysis function
 // In production, this would integrate with actual audio processing libraries
@@ -86,6 +88,10 @@ export async function POST(request: NextRequest) {
     }
 
     const file = formData.get('audio') as File;
+    const processedAudio = formData.get('processedAudio') as File | null;
+    const moduleName = formData.get('moduleName') as string || 'Custom';
+    const effectsApplied = formData.get('effectsApplied') as string || 'None';
+    const durationSeconds = parseInt(formData.get('durationSeconds') as string || '180');
 
     if (!file) {
       return NextResponse.json(
@@ -101,6 +107,9 @@ export async function POST(request: NextRequest) {
     if (!validTypes.includes(file.type) && !file.name.match(validExtensions)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file type. Supported formats: MP3, WAV, FLAC, M4A, OGG, WebM' },
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|m4a|ogg|webm)$/i)) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Please upload an audio file (MP3, WAV, FLAC, M4A, OGG, WEBM)' },
         { status: 400 }
       );
     }
@@ -199,6 +208,24 @@ export async function POST(request: NextRequest) {
         remaining: userCredits.balance - analysisCost,
       };
     }
+    // Calculate credits and time saved using constants
+    const durationMinutes = durationSeconds / 60;
+    const creditsCharged = calculateJobCost('audio_processing', durationMinutes);
+    const timeSavedMinutes = TIME_SAVED_BASELINES.audio_processing;
+
+    // Prepare response with job information
+    const jobData = {
+      jobId: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      fileName: file.name,
+      fileSize: file.size,
+      durationSeconds,
+      moduleName,
+      effectsApplied,
+      status: 'completed',
+      creditsCharged,
+      timeSaved: timeSavedMinutes,
+      processedFileUrl: processedAudio ? `processed_${file.name}` : null,
+    };
 
     return NextResponse.json({
       success: true,
@@ -218,6 +245,8 @@ export async function POST(request: NextRequest) {
         credits,
       },
       message: 'Audio processed successfully',
+      jobData,
+      message: 'Audio processed successfully. Effects applied: ' + effectsApplied,
     });
 
   } catch (error) {
