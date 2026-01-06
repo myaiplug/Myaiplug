@@ -5,6 +5,8 @@ import { calculateJobCost } from '../constants/pricing';
 import { awardPoints, calculateJobPoints } from './pointsEngine';
 import { generateSecureId } from '../utils/secureId';
 import { randomInt } from 'crypto';
+import { incrementJobStats } from './userService';
+import { logActivity } from './activityLogService';
 
 export interface CreateJobParams {
   userId: string;
@@ -113,6 +115,22 @@ export async function completeJob(
       jobId: job.id,
     });
   }
+
+  // Update user profile with job stats (for leaderboard)
+  incrementJobStats(job.userId, job.timeSavedSec);
+
+  // Log job completion activity
+  logActivity({
+    userId: job.userId,
+    activityType: 'job_completed',
+    metadata: {
+      jobId: job.id,
+      jobType: job.type,
+      timeSavedSec: job.timeSavedSec,
+      processingSeconds,
+      pointsAwarded: pointsEntry?.points || 0,
+    },
+  });
 
   return {
     job,

@@ -48,6 +48,7 @@ export interface Profile {
   level: number;
   pointsTotal: number;
   timeSavedSecTotal: number;
+  totalJobs: number;
   badges: Badge[];
   privacyOptOut: boolean;
   membership?: 'free' | 'pro' | 'vip';
@@ -66,6 +67,38 @@ export interface Credits {
   balance: number;
   lastResetAt: Date;
   rolloverExpiryAt: Date;
+}
+
+export type SubscriptionStatus = 
+  | 'active' 
+  | 'past_due' 
+  | 'canceled' 
+  | 'incomplete' 
+  | 'incomplete_expired' 
+  | 'trialing' 
+  | 'unpaid'
+  | 'paused';
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  priceId: string;
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TokenGrant {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  subscriptionId?: string;
+  createdAt: Date;
 }
 
 export interface Referral {

@@ -38,11 +38,13 @@ export async function GET(request: NextRequest) {
         tier: result.user.tier,
         avatarUrl: result.user.avatarUrl,
         bio: result.user.bio,
+        createdAt: result.user.createdAt,
       },
       profile: {
         level: result.profile.level,
         pointsTotal: result.profile.pointsTotal,
         timeSavedSecTotal: result.profile.timeSavedSecTotal,
+        totalJobs: result.profile.totalJobs,
         badges: result.profile.badges,
       },
     });

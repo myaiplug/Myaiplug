@@ -77,6 +77,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate file size (100MB max)
+    const maxSize = 100 * 1024 * 1024;
+    if (audioFile.size > maxSize) {
+      const sizeMB = (audioFile.size / (1024 * 1024)).toFixed(2);
+      return NextResponse.json(
+        { 
+          error: 'File too large',
+          details: `The file size (${sizeMB} MB) exceeds the maximum allowed size of 100 MB.`,
+          fileSize: audioFile.size,
+          maxSize,
+          sizeMB: parseFloat(sizeMB),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size constraints
     // Validate file size
     const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
     if (!sizeValidation.valid) {
