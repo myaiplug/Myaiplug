@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import WaveformPlayer from '@/components/audio/WaveformPlayer';
 import { splitAudio } from '@/lib/api/split';
@@ -31,21 +31,32 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Cleanup URLs on unmount
+  // Cleanup URLs and AudioContext on unmount
   const cleanupUrls = useCallback(() => {
     if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
     if (vocalsUrl) URL.revokeObjectURL(vocalsUrl);
     if (instrumentalUrl) URL.revokeObjectURL(instrumentalUrl);
   }, [uploadedFileUrl, vocalsUrl, instrumentalUrl]);
 
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      cleanupUrls();
+      // Close AudioContext to free resources
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
+  }, [cleanupUrls]);
+
   // Trim audio to specified duration (in seconds)
   const trimAudioFile = async (file: File, maxDuration: number): Promise<File> => {
     try {
       // Initialize AudioContext if not already done
       if (!audioContextRef.current) {
-        // Use proper type checking for webkit prefix
-        const AudioContextClass = window.AudioContext || 
-          (typeof (window as any).webkitAudioContext !== 'undefined' ? (window as any).webkitAudioContext : null);
+        // Create AudioContext with proper webkit polyfill
+        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
         
         if (!AudioContextClass) {
           throw new Error('Web Audio API is not supported in this browser');
@@ -84,7 +95,8 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
       
       // Create new file with proper filename handling
       const originalName = file.name || 'audio';
-      const baseName = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+      const lastDotIndex = originalName.lastIndexOf('.');
+      const baseName = lastDotIndex > 0 ? originalName.substring(0, lastDotIndex) : originalName;
       const trimmedFileName = `${baseName}_demo_20s.wav`;
       
       const trimmedFile = new File([wavBlob], trimmedFileName, {
