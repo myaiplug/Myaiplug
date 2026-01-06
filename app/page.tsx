@@ -3,6 +3,7 @@
 import Header from '@/components/Header';
 import Hero from '@/sections/Hero';
 import PremiumAudioDemo from '@/components/PremiumAudioDemo';
+import StemSplitTool from '@/components/StemSplitTool';
 import MultiStepFunnel from '@/components/MultiStepFunnel';
 import HowItWorks from '@/components/HowItWorks';
 import ValueTrio from '@/components/ValueTrio';
@@ -124,6 +125,13 @@ export default function Home() {
         <Hero />
         {/* Premium Audio Effects Demo - Featured */}
         <PremiumAudioDemo />
+        {/* Stem Split Demo - Interactive Upload */}
+        <section id="stem-split-demo" className="py-20 px-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-myai-primary/5 to-transparent pointer-events-none" />
+          <div className="max-w-7xl mx-auto relative z-10">
+            <StemSplitTool demoMode={true} />
+          </div>
+        </section>
         <MultiStepFunnel />
         <HowItWorks />
         <ValueTrio />
