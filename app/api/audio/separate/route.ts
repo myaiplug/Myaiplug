@@ -10,15 +10,6 @@ import {
 } from '@/lib/audio-processing/utils/audio-decoder';
 import { encodeToBase64WAV } from '@/lib/audio-processing/utils/audio-encoder';
 
-// Configure route to handle larger payloads (up to 10MB)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
 /**
  * POST /api/audio/separate
  * Separates audio into stems using TF-Locoformer
@@ -31,6 +22,9 @@ export const config = {
  * - debug: boolean (default: false) - Enable detailed benchmark logging
  * 
  * Authentication via Authorization header (Supabase Auth)
+ * 
+ * Note: App Router handles body parsing automatically. The body size is
+ * controlled by the Next.js config (bodySizeLimit in next.config.js).
  */
 export async function POST(request: NextRequest) {
   const benchmarks: Record<string, number> = {};

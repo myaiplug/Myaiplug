@@ -43,7 +43,15 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
     try {
       // Initialize AudioContext if not already done
       if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Use proper type checking for webkit prefix
+        const AudioContextClass = window.AudioContext || 
+          (typeof (window as any).webkitAudioContext !== 'undefined' ? (window as any).webkitAudioContext : null);
+        
+        if (!AudioContextClass) {
+          throw new Error('Web Audio API is not supported in this browser');
+        }
+        
+        audioContextRef.current = new AudioContextClass();
       }
       const audioContext = audioContextRef.current;
 
@@ -74,8 +82,12 @@ export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) 
       // Convert trimmed buffer to WAV blob
       const wavBlob = await audioBufferToWav(trimmedBuffer);
       
-      // Create new file with original name but trimmed content
-      const trimmedFile = new File([wavBlob], file.name.replace(/\.[^.]+$/, '_trimmed.wav'), {
+      // Create new file with proper filename handling
+      const originalName = file.name || 'audio';
+      const baseName = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+      const trimmedFileName = `${baseName}_demo_20s.wav`;
+      
+      const trimmedFile = new File([wavBlob], trimmedFileName, {
         type: 'audio/wav'
       });
 
