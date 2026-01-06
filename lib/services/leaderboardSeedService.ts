@@ -168,10 +168,19 @@ export async function seedLeaderboard(): Promise<void> {
 
   console.log('Seeding leaderboard with demo users...');
 
-  for (const seedUser of SEED_USERS) {
+  // Base date: 90 days ago from a fixed point for reproducibility
+  const baseDate = new Date('2024-10-01T00:00:00.000Z');
+  const millisecondsIn90Days = 90 * 24 * 60 * 60 * 1000;
+
+  for (let i = 0; i < SEED_USERS.length; i++) {
+    const seedUser = SEED_USERS[i];
     const userId = `seed_${seedUser.handle.toLowerCase()}`;
     
-    // Create user object
+    // Create user object with fixed, deterministic creation date
+    // Users are spread evenly across the 90-day period based on their index
+    const daysAgo = Math.floor((i / SEED_USERS.length) * 90);
+    const createdAt = new Date(baseDate.getTime() + (daysAgo * 24 * 60 * 60 * 1000));
+    
     const user: User = {
       id: userId,
       email: seedUser.email,
@@ -182,7 +191,7 @@ export async function seedLeaderboard(): Promise<void> {
       bio: null,
       tier: seedUser.isPro ? 'pro' : 'free',
       ipHash: 'seeded',
-      createdAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000), // Random date in last 90 days
+      createdAt,
     };
 
     // Create profile object
