@@ -10,6 +10,11 @@ import { generateSecureId } from '@/lib/utils/secureId';
 // NOTE: In-memory storage for demo/development purposes
 // In production, replace with persistent storage (database, cloud storage)
 // This data will be lost on server restarts and won't work in serverless environments
+// Prevent deployment to production without proper storage
+if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+  console.error('WARNING: Production deployment detected without DATABASE_URL. In-memory storage will not work correctly in serverless environments.');
+}
+
 const processedFilesStore = new Map<string, {
   originalFileName: string;
   processedAt: Date;

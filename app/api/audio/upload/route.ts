@@ -7,6 +7,11 @@ import { generateSecureId } from '@/lib/utils/secureId';
 import type { TokenUsageEntry } from '@/lib/types/tokenUsage';
 
 // Token usage log (demo only - use database in production)
+// Prevent deployment to production without proper storage
+if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+  console.error('WARNING: Production deployment detected without DATABASE_URL. Token usage logs will not persist in serverless environments.');
+}
+
 const tokenUsageLog: TokenUsageEntry[] = [];
 
 // Log token usage (internal function)

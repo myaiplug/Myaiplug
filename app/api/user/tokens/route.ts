@@ -8,6 +8,11 @@ import type { TokenUsageEntry } from '@/lib/types/tokenUsage';
 // In production, replace with persistent storage (database)
 // This data will be lost on server restarts and won't work in serverless environments
 // Additionally, losing this data can lead to billing discrepancies and inability to track abuse
+// Prevent deployment to production without proper storage
+if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+  console.error('WARNING: Production deployment detected without DATABASE_URL. Token usage logs will not persist in serverless environments.');
+}
+
 const tokenUsageLog: TokenUsageEntry[] = [];
 
 // Internal function to log token usage
