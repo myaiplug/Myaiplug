@@ -9,12 +9,23 @@ export enum DeviceType {
   WEBGPU = 'webgpu',
 }
 
+export enum ExecutionMode {
+  CPU_ONLY = 'cpu_only',
+  GPU_ALLOWED = 'gpu_allowed',
+}
+
 export interface DeviceInfo {
   type: DeviceType;
   name: string;
   available: boolean;
   memory?: number;  // In MB
   details?: any;
+}
+
+export interface ExecutionConstraints {
+  mode: ExecutionMode;
+  forceCPU: boolean;
+  tier: 'free' | 'pro' | 'vip';
 }
 
 /**
@@ -84,10 +95,26 @@ export async function detectDevices(): Promise<DeviceInfo[]> {
 }
 
 /**
- * Select the best available device
+ * Select the best available device with execution constraints
+ * @param preferredType - Preferred device type
+ * @param constraints - Execution constraints (CPU-only for free tier)
  */
-export async function selectBestDevice(preferredType?: DeviceType): Promise<DeviceInfo> {
+export async function selectBestDevice(
+  preferredType?: DeviceType,
+  constraints?: ExecutionConstraints
+): Promise<DeviceInfo> {
   const devices = await detectDevices();
+
+  // PHASE 1: CPU-ONLY ENFORCEMENT FOR FREE TIER
+  // Free tier must NEVER use GPU - zero variable cost guarantee
+  if (constraints?.forceCPU || constraints?.mode === ExecutionMode.CPU_ONLY) {
+    const cpu = devices.find(d => d.type === DeviceType.CPU);
+    if (!cpu) {
+      throw new Error('CPU not available');
+    }
+    console.log(`[PHASE1] Enforcing CPU-only execution for ${constraints.tier} tier`);
+    return cpu;
+  }
 
   if (preferredType) {
     const preferred = devices.find(d => d.type === preferredType && d.available);
@@ -185,13 +212,21 @@ export async function selectBestDevice(preferredType?: DeviceType): Promise<Devi
 export class DeviceManager {
   private currentDevice: DeviceInfo | null = null;
   private devices: DeviceInfo[] = [];
+  private executionConstraints: ExecutionConstraints | null = null;
 
-  async initialize(preferredType?: DeviceType): Promise<void> {
+  async initialize(
+    preferredType?: DeviceType,
+    constraints?: ExecutionConstraints
+  ): Promise<void> {
     this.devices = await detectDevices();
-    this.currentDevice = await selectBestDevice(preferredType);
+    this.executionConstraints = constraints || null;
+    this.currentDevice = await selectBestDevice(preferredType, constraints);
     
     console.log('Available devices:', this.devices);
     console.log('Selected device:', this.currentDevice);
+    if (constraints) {
+      console.log('Execution constraints:', constraints);
+    }
   }
 
   getCurrentDevice(): DeviceInfo | null {
@@ -202,7 +237,16 @@ export class DeviceManager {
     return [...this.devices];
   }
 
+  getExecutionConstraints(): ExecutionConstraints | null {
+    return this.executionConstraints;
+  }
+
   async switchDevice(type: DeviceType): Promise<void> {
+    // PHASE 1: Prevent GPU switching if CPU-only constraint is active
+    if (this.executionConstraints?.forceCPU && type !== DeviceType.CPU) {
+      throw new Error(`Cannot switch to ${type}: CPU-only mode enforced for ${this.executionConstraints.tier} tier`);
+    }
+
     const device = this.devices.find(d => d.type === type && d.available);
     
     if (!device) {
@@ -294,9 +338,14 @@ export function getDeviceManager(): DeviceManager {
 
 /**
  * Initialize device manager (call once at startup)
+ * @param preferredType - Preferred device type
+ * @param constraints - Execution constraints for CPU-only enforcement
  */
-export async function initializeDeviceManager(preferredType?: DeviceType): Promise<DeviceManager> {
+export async function initializeDeviceManager(
+  preferredType?: DeviceType,
+  constraints?: ExecutionConstraints
+): Promise<DeviceManager> {
   const manager = getDeviceManager();
-  await manager.initialize(preferredType);
+  await manager.initialize(preferredType, constraints);
   return manager;
 }

@@ -2,9 +2,27 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { MICROCOPY } from '@/lib/constants/microcopy';
 import { getMockSocialProof } from '@/lib/utils/mockData';
+import dynamic from 'next/dynamic';
+
+// Lazy load the waveform component to improve initial page load
+const HeroWaveformSplit = dynamic(() => import('@/components/landing/HeroWaveformSplit'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full max-w-4xl mx-auto py-20 flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-gray-400">Loading audio demo...</p>
+      </div>
+    </div>
+  ),
+});
+
+// Wrapper component to handle lazy loading
+function HeroWaveformSplitLazy() {
+  return <HeroWaveformSplit trackTitle="Demo Track" />;
+}
 
 // Sweeping gradient background animation
 function SweepingGradient() {
@@ -39,9 +57,9 @@ export default function Hero() {
       
       {/* Content */}
       <div className="relative z-20 max-w-7xl mx-auto px-6 py-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Headline & CTA */}
-          <div className="text-left">
+        <div className="space-y-16">
+          {/* Headline & CTA */}
+          <div className="text-center max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -66,7 +84,7 @@ export default function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.8 }}
-                className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl leading-relaxed"
+                className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed"
               >
                 {MICROCOPY.HERO.subtitle}
               </motion.p>
@@ -76,7 +94,7 @@ export default function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6, duration: 0.8 }}
-                className="flex flex-col sm:flex-row gap-4 mb-8"
+                className="flex flex-col sm:flex-row gap-4 mb-8 justify-center"
               >
                 <Link href="#funnel">
                   <button className="group relative px-8 py-4 bg-gradient-to-r from-myai-primary to-myai-accent text-white font-bold rounded-xl text-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-myai-primary/50">
@@ -97,7 +115,7 @@ export default function Hero() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8, duration: 0.8 }}
-                className="flex items-center gap-4"
+                className="flex items-center gap-4 justify-center"
               >
                 <div className="flex -space-x-2">
                   {socialProof.avatars.map((avatar, i) => (
@@ -116,45 +134,15 @@ export default function Hero() {
             </motion.div>
           </div>
 
-          {/* Right: Hero Image */}
+          {/* Hero Waveform Split Component */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-            className="relative"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 0.8 }}
+            id="waveform-demo"
           >
-            <div className="relative w-full max-w-md mx-auto aspect-square rounded-2xl overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-myai-primary/20 to-myai-accent/20 backdrop-blur-xl" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(124,77,255,0.3),transparent_70%)]" />
-              <div className="relative z-10 h-full flex items-center justify-center p-8">
-                {/* Hero Image - Replace /assets/hero-image.png with actual image */}
-                <img 
-                  src="/assets/hero-image.png" 
-                  alt="MyAiPlug Audio Tools - Professional headphones and camera equipment"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback to gradient background with icon if image fails to load
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                {/* Fallback icon (hidden when image loads) */}
-                <motion.div
-                  animate={{
-                    scale: [1, 1.05, 1],
-                    rotate: [0, 2, -2, 0],
-                  }}
-                  transition={{
-                    duration: 6,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  }}
-                  className="absolute text-6xl"
-                  style={{ display: 'none' }}
-                >
-                  🎵
-                </motion.div>
-              </div>
-            </div>
+            {/* Lazy load component */}
+            <HeroWaveformSplitLazy />
           </motion.div>
         </div>
       </div>

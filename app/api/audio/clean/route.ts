@@ -64,18 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
-    
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(validExtensions)) {
-      const fileExt = audioFile.name.split('.').pop()?.toLowerCase() || 'unknown';
+
+    // Validate file type
     if (!isSupportedFormat(audioFile.type, audioFile.name)) {
       return NextResponse.json(
         { 
           error: 'Unsupported audio format',
-          details: `The file format '.${fileExt}' is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
+          details: `The file format is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
           supportedFormats: ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'webm'],
-          detectedFormat: fileExt,
         },
         { status: 400 }
       );
@@ -98,6 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file size constraints
+    // Validate file size
     const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
     if (!sizeValidation.valid) {
       return NextResponse.json(
@@ -121,11 +118,6 @@ export async function POST(request: NextRequest) {
     let actualSampleRate: number;
     let actualDuration: number;
     
-    // NOTE: Phase stub - create test audio data
-    const dummyLength = 44100 * 3;
-    const audioData = new Float32Array(dummyLength);
-    for (let i = 0; i < audioData.length; i++) {
-      audioData[i] = Math.sin(2 * Math.PI * 440 * i / 44100) * 0.5;
     try {
       console.log('Decoding audio file...');
       const decoded = await decodeAudioFile(arrayBuffer, 44100, true);

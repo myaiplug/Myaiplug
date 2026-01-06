@@ -8,6 +8,7 @@ import {
   isSupportedFormat, 
   validateAudioConstraints 
 } from '@/lib/audio-processing/utils/audio-decoder';
+import { encodeToBase64WAV } from '@/lib/audio-processing/utils/audio-encoder';
 
 /**
  * POST /api/audio/separate
@@ -84,20 +85,13 @@ export async function POST(request: NextRequest) {
       console.warn('No userId provided - defaulting to free tier');
     }
 
-    // Validate file type with detailed error messages
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/mp4', 'audio/x-m4a', 'audio/ogg', 'audio/webm'];
-    const validExtensions = /\.(mp3|wav|flac|m4a|ogg|webm)$/i;
-    
-    if (!validTypes.includes(audioFile.type) && !audioFile.name.match(validExtensions)) {
-      const fileExt = audioFile.name.split('.').pop()?.toLowerCase() || 'unknown';
     // Validate file type using new audio decoder utility
     if (!isSupportedFormat(audioFile.type, audioFile.name)) {
       return NextResponse.json(
         { 
           error: 'Unsupported audio format',
-          details: `The file format '.${fileExt}' is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
+          details: `The file format is not supported. Please upload one of the following formats: MP3, WAV, FLAC, M4A, OGG, or WEBM.`,
           supportedFormats: ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'webm'],
-          detectedFormat: fileExt,
         },
         { status: 400 }
       );
@@ -120,6 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file size constraints
+    // Validate file size
     const sizeValidation = validateAudioConstraints(audioFile.size, undefined, tier as 'free' | 'pro');
     if (!sizeValidation.valid) {
       return NextResponse.json(
@@ -200,6 +195,8 @@ export async function POST(request: NextRequest) {
 
     // Prepare response with stem information
     const stems: Record<string, any> = {};
+    const stemAudioData: Record<string, string> = {}; // For base64 encoded audio
+    
     for (const [stemName, stemAudio] of result.stems) {
       stems[stemName] = {
         name: stemName,
@@ -209,6 +206,12 @@ export async function POST(request: NextRequest) {
         filename: `${audioFile.name.replace(/\.[^.]+$/, '')}_stemsplit_${stemName}.${format}`,
         available: true,
       };
+      
+      // Encode audio to base64 WAV for immediate download
+      // Only for 2-stem (vocals + instrumental)
+      if (format === 'wav' && (stemName === 'vocals' || stemName === 'instrumental')) {
+        stemAudioData[stemName] = encodeToBase64WAV(stemAudio, result.sampleRate);
+      }
     }
 
     // Log benchmark details if debug mode is enabled
@@ -234,6 +237,9 @@ export async function POST(request: NextRequest) {
       tier,
       modelVariant,
       stems,
+      // Include base64 encoded audio for immediate download
+      vocals: stemAudioData.vocals,
+      instrumental: stemAudioData.instrumental,
       processing: {
         duration: result.duration,
         processingTime,

@@ -12,12 +12,14 @@ interface JobData {
   fileName: string;
   preset: string;
   proPreview: boolean;
+  effects: string[]; // Array of effect IDs: 'clean', 'loudness', 'bass_boost'
   audioFile?: File;
   result?: {
     url: string;
     timeSaved: string;
     points: number;
     badge?: string;
+    creditsCharged?: number;
     audioAnalysis?: {
       title: string;
       genre: string;
@@ -38,6 +40,7 @@ export default function MultiStepFunnel() {
     fileName: '',
     preset: 'basic_chain',
     proPreview: false,
+    effects: ['clean'], // Default to clean effect
   });
 
   const steps = [
@@ -51,6 +54,27 @@ export default function MultiStepFunnel() {
     { id: 'basic_chain', name: PRESET_LABELS.basic_chain, cost: 25 },
     { id: 'podcast_polish', name: PRESET_LABELS.podcast_polish, cost: 45 },
     { id: 'reels_pack', name: PRESET_LABELS.reels_pack, cost: 80 },
+  ];
+
+  const audioEffects = [
+    { 
+      id: 'clean', 
+      name: 'Clean Audio', 
+      description: 'Remove noise, artifacts, and unwanted sounds',
+      icon: '🧹'
+    },
+    { 
+      id: 'loudness', 
+      name: 'Spotify Loudness', 
+      description: 'Normalize to -14 LUFS (Spotify standard)',
+      icon: '📢'
+    },
+    { 
+      id: 'bass_boost', 
+      name: 'Bass Boost', 
+      description: 'Enhanced bass without distortion or clipping',
+      icon: '🎵'
+    },
   ];
 
   const processingStages = [
@@ -109,15 +133,32 @@ export default function MultiStepFunnel() {
       // Call the audio upload API
       const formData = new FormData();
       formData.append('audio', jobData.audioFile);
+      formData.append('preset', jobData.preset);
+      formData.append('effects', JSON.stringify(jobData.effects));
 
-      const response = await fetch('/api/audio/upload', {
+      const response = await fetch('/api/audio/process', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process audio');
+        let errorMessage = 'Failed to process audio';
+        try {
+          // Read the response body once as text
+          const responseText = await response.text();
+          // Try to parse it as JSON
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorMessage;
+          } catch (jsonError) {
+            // Not JSON, use the text directly
+            errorMessage = responseText || `Server error: ${response.status} ${response.statusText}`;
+          }
+        } catch (e) {
+          // Failed to read response
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -132,8 +173,9 @@ export default function MultiStepFunnel() {
           result: {
             url: '/demo-result.mp3',
             timeSaved: '1m12s',
-            points: 125,
-            badge: 'Upload Hero I',
+            points: data.pointsAwarded || 125,
+            badge: data.badgeEarned || 'Upload Hero I',
+            creditsCharged: data.creditsCharged || 50,
             audioAnalysis: data.audioAnalysis,
           },
         });
@@ -267,6 +309,43 @@ export default function MultiStepFunnel() {
                     </button>
                   ))}
                 </div>
+
+                {/* Audio Effects Selection */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-4">Select Audio Effects</h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {audioEffects.map((effect) => (
+                      <label
+                        key={effect.id}
+                        className={`flex items-start gap-3 p-4 rounded-lg cursor-pointer transition-all ${
+                          jobData.effects.includes(effect.id)
+                            ? 'bg-myai-accent/20 border-2 border-myai-accent'
+                            : 'bg-white/5 border-2 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={jobData.effects.includes(effect.id)}
+                          onChange={(e) => {
+                            const newEffects = e.target.checked
+                              ? [...jobData.effects, effect.id]
+                              : jobData.effects.filter(id => id !== effect.id);
+                            setJobData({ ...jobData, effects: newEffects });
+                          }}
+                          className="mt-1 w-5 h-5 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{effect.icon}</span>
+                            <span className="font-semibold">{effect.name}</span>
+                          </div>
+                          <p className="text-sm text-gray-400 mt-1">{effect.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="flex items-center gap-3 mb-8 p-4 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
                   <input
                     type="checkbox"
@@ -387,6 +466,11 @@ export default function MultiStepFunnel() {
                     <div className="text-sm text-gray-300">
                       +{jobData.result.points} pts, +{jobData.result.timeSaved} time saved
                     </div>
+                    {jobData.result.creditsCharged && (
+                      <div className="text-xs text-gray-400 mt-2">
+                        {formatCredits(jobData.result.creditsCharged)} used
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -427,7 +511,7 @@ export default function MultiStepFunnel() {
                   <button 
                     onClick={() => {
                       setCurrentStep('upload');
-                      setJobData({ fileName: '', preset: 'basic_chain', proPreview: false });
+                      setJobData({ fileName: '', preset: 'basic_chain', proPreview: false, effects: ['clean'] });
                       setUploadProgress(0);
                     }}
                     className="px-6 py-2 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
