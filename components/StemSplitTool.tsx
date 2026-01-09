@@ -5,14 +5,18 @@
 
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import WaveformPlayer from '@/components/audio/WaveformPlayer';
 import { splitAudio } from '@/lib/api/split';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import Link from 'next/link';
 
-export default function StemSplitTool() {
+interface StemSplitToolProps {
+  demoMode?: boolean; // If true, limit processing to 20 seconds
+}
+
+export default function StemSplitTool({ demoMode = false }: StemSplitToolProps) {
   const { user } = useAuth();
   const [state, setState] = useState<'idle' | 'uploading' | 'processing' | 'success' | 'error' | 'limit'>('idle');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -25,15 +29,143 @@ export default function StemSplitTool() {
   const [upgradeUrl, setUpgradeUrl] = useState('');
   const [progress, setProgress] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Cleanup URLs on unmount
+  // Cleanup URLs and AudioContext on unmount
   const cleanupUrls = useCallback(() => {
     if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
     if (vocalsUrl) URL.revokeObjectURL(vocalsUrl);
     if (instrumentalUrl) URL.revokeObjectURL(instrumentalUrl);
   }, [uploadedFileUrl, vocalsUrl, instrumentalUrl]);
 
-  const handleFileSelect = (file: File) => {
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      cleanupUrls();
+      // Close AudioContext to free resources
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
+  }, [cleanupUrls]);
+
+  // Trim audio to specified duration (in seconds)
+  const trimAudioFile = async (file: File, maxDuration: number): Promise<File> => {
+    try {
+      // Initialize AudioContext if not already done
+      if (!audioContextRef.current) {
+        // Use consistent pattern with rest of codebase
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        
+        if (!AudioContext) {
+          throw new Error('Web Audio API is not supported in this browser');
+        }
+        
+        audioContextRef.current = new AudioContext();
+      }
+      const audioContext = audioContextRef.current;
+
+      // Decode audio file
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // Check if trimming is needed
+      if (audioBuffer.duration <= maxDuration) {
+        return file; // No need to trim
+      }
+
+      // Create new buffer with trimmed duration
+      const sampleRate = audioBuffer.sampleRate;
+      const numberOfChannels = audioBuffer.numberOfChannels;
+      const trimmedLength = Math.floor(maxDuration * sampleRate);
+      const trimmedBuffer = audioContext.createBuffer(numberOfChannels, trimmedLength, sampleRate);
+
+      // Copy audio data for each channel
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sourceData = audioBuffer.getChannelData(channel);
+        const trimmedData = trimmedBuffer.getChannelData(channel);
+        for (let i = 0; i < trimmedLength; i++) {
+          trimmedData[i] = sourceData[i];
+        }
+      }
+
+      // Convert trimmed buffer to WAV blob
+      const wavBlob = await audioBufferToWav(trimmedBuffer);
+      
+      // Create new file with proper filename handling
+      const originalName = file.name || 'audio';
+      const lastDotIndex = originalName.lastIndexOf('.');
+      // Handle all cases: no extension (-1), extension at start (0), or normal case (>0)
+      const baseName = lastDotIndex > 0 ? originalName.substring(0, lastDotIndex) : originalName;
+      const trimmedFileName = `${baseName}_demo_20s.wav`;
+      
+      const trimmedFile = new File([wavBlob], trimmedFileName, {
+        type: 'audio/wav'
+      });
+
+      return trimmedFile;
+    } catch (error) {
+      console.error('Error trimming audio:', error);
+      throw new Error('Failed to trim audio file');
+    }
+  };
+
+  // Convert AudioBuffer to WAV Blob
+  const audioBufferToWav = async (buffer: AudioBuffer): Promise<Blob> => {
+    const numberOfChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numberOfChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = buffer.length * blockAlign;
+
+    const arrayBuffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(arrayBuffer);
+
+    // Write WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Write audio data
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numberOfChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, channels[channel][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  };
+
+  const handleFileSelect = async (file: File) => {
     // Cleanup previous URLs
     cleanupUrls();
 
@@ -44,24 +176,39 @@ export default function StemSplitTool() {
       return;
     }
 
-    // Check file size (max 50MB for free tier, 100MB for pro)
-    const maxSize = user ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+    // Check file size (limit to 10MB in demo mode, otherwise 50MB/100MB)
+    const maxSize = demoMode ? 10 * 1024 * 1024 : (user ? 100 * 1024 * 1024 : 50 * 1024 * 1024);
     if (file.size > maxSize) {
-      setErrorMessage(`File too large. Maximum size: ${user ? '100MB' : '50MB'}`);
+      setErrorMessage(`File too large. Maximum size: ${demoMode ? '10MB' : (user ? '100MB' : '50MB')}`);
       setState('error');
       return;
     }
 
-    setUploadedFile(file);
-    const url = URL.createObjectURL(file);
+    // In demo mode, trim to 20 seconds
+    let processedFile = file;
+    if (demoMode) {
+      try {
+        setProgress('Preparing demo (limiting to 20 seconds)...');
+        processedFile = await trimAudioFile(file, 20);
+        setProgress('');
+      } catch (error) {
+        console.error('Error preparing demo:', error);
+        setErrorMessage('Failed to prepare audio for demo. Please try a different file.');
+        setState('error');
+        return;
+      }
+    }
+
+    setUploadedFile(processedFile);
+    const url = URL.createObjectURL(processedFile);
     setUploadedFileUrl(url);
     setState('uploading');
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
+    if (file) await handleFileSelect(file);
   };
 
   const handleSplit = async () => {
@@ -140,9 +287,13 @@ export default function StemSplitTool() {
         <div className="text-center mb-8">
           <h2 className="text-3xl font-display font-bold mb-2">
             AI <span className="gradient-text">Stem Splitter</span>
+            {demoMode && <span className="text-sm ml-2 text-purple-400">(Demo Mode)</span>}
           </h2>
           <p className="text-gray-400">
-            Separate any audio into vocals and instrumental tracks
+            {demoMode 
+              ? 'Try it now! Upload any audio and we\'ll split the first 20 seconds'
+              : 'Separate any audio into vocals and instrumental tracks'
+            }
           </p>
         </div>
 
@@ -168,9 +319,9 @@ export default function StemSplitTool() {
                   ref={fileInputRef}
                   type="file"
                   accept="audio/*"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) handleFileSelect(file);
+                    if (file) await handleFileSelect(file);
                   }}
                   className="hidden"
                 />
@@ -185,7 +336,8 @@ export default function StemSplitTool() {
                   or click to browse
                 </p>
                 <div className="text-sm text-gray-500">
-                  Supports MP3, WAV, FLAC, M4A, OGG • Max {user ? '100MB' : '50MB'}
+                  Supports MP3, WAV, FLAC, M4A, OGG • Max {demoMode ? '10MB' : (user ? '100MB' : '50MB')}
+                  {demoMode && <span className="block mt-1 text-purple-400">Demo: First 20 seconds only</span>}
                 </div>
               </div>
 

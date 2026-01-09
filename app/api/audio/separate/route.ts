@@ -22,6 +22,9 @@ import { encodeToBase64WAV } from '@/lib/audio-processing/utils/audio-encoder';
  * - debug: boolean (default: false) - Enable detailed benchmark logging
  * 
  * Authentication via Authorization header (Supabase Auth)
+ * 
+ * Note: App Router handles body parsing automatically. The body size is
+ * controlled by the Next.js config (bodySizeLimit in next.config.js).
  */
 export async function POST(request: NextRequest) {
   const benchmarks: Record<string, number> = {};
