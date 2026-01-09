@@ -47,12 +47,23 @@ export default function AudioToSocialContent() {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process audio');
+      // Always try to parse JSON, but handle errors gracefully
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Server returned an invalid response. Please try again.');
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process audio');
+      }
+
+      // Ensure we have the expected data structure
+      if (!data.success) {
+        throw new Error(data.error || 'Processing failed');
+      }
 
       // Set the audio analysis and generated content from the API
       setAudioAnalysis(data.audioAnalysis);
