@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard', icon: '📊', label: 'Overview' },
   { href: '/dashboard/jobs', icon: '🎵', label: 'Jobs' },
   { href: '/dashboard/portfolio', icon: '🎨', label: 'Portfolio' },
+  { href: '/dashboard/store', icon: '🛍️', label: 'Store' },
   { href: '/blog', icon: '📝', label: 'Blog' },
   { href: '/profile', icon: '👤', label: 'Profile' },
   { href: '/dashboard/referrals', icon: '🤝', label: 'Referrals' },
