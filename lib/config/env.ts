@@ -25,6 +25,15 @@ export interface EnvConfig {
   imagenApiKey?: string;
   imagenModel: string;
   
+  // Shopify
+  shopifyStoreDomain?: string;
+  shopifyAdminApiKey?: string;
+  shopifyAdminApiVersion: string;
+
+  // Printify
+  printifyApiKey?: string;
+  printifyShopId?: string;
+
   // Optional
   openaiApiKey?: string;
   youtubeApiKey?: string;
@@ -57,6 +66,15 @@ export const env: EnvConfig = {
   imagenApiKey: process.env.GOOGLE_IMAGEN_API_KEY || process.env.GOOGLE_GEMINI_API_KEY,
   imagenModel: process.env.IMAGEN_MODEL || 'imagen-3.0-generate-001',
   
+  // Shopify
+  shopifyStoreDomain: process.env.SHOPIFY_STORE_DOMAIN,
+  shopifyAdminApiKey: process.env.SHOPIFY_ADMIN_API_KEY,
+  shopifyAdminApiVersion: process.env.SHOPIFY_ADMIN_API_VERSION || '2024-10',
+
+  // Printify
+  printifyApiKey: process.env.PRINTIFY_API_KEY,
+  printifyShopId: process.env.PRINTIFY_SHOP_ID,
+
   // Optional
   openaiApiKey: process.env.OPENAI_API_KEY,
   youtubeApiKey: process.env.YOUTUBE_API_KEY,
@@ -114,6 +132,11 @@ export function printEnvStatus(): void {
   console.log('\n💳 Payments:');
   console.log(`  Stripe: ${env.stripeSecretKey && env.stripePublishableKey ? '✅ Configured' : '⚠️  Optional'}`);
   
+  // E-Commerce
+  console.log('\n🛍️  E-Commerce:');
+  console.log(`  Shopify: ${env.shopifyStoreDomain && env.shopifyAdminApiKey ? '✅ Configured' : '⚠️  Optional'}`);
+  console.log(`  Printify: ${env.printifyApiKey && env.printifyShopId ? '✅ Configured' : '⚠️  Optional'}`);
+
   // Optional Services
   console.log('\n🔌 Optional Services:');
   console.log(`  OpenAI: ${env.openaiApiKey ? '✅ Configured' : '⚠️  Not configured'}`);
