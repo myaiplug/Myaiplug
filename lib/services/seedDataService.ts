@@ -132,6 +132,7 @@ export function generateDemoUsers(): SeedUser[] {
       pointsTotal: config.points,
       level: config.level,
       timeSavedSecTotal: config.timeSaved * 3600,
+      totalJobs: jobs,
       badges: generateBadges({ 
         jobs, 
         timeSaved: config.timeSaved * 3600, 

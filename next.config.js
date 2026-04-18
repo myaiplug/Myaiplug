@@ -6,12 +6,6 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Configure API routes
-  experimental: {
-    // Set body size limit to 10MB for API routes
-    // This prevents FUNCTION_PAYLOAD_TOO_LARGE errors
-    bodySizeLimit: '10mb',
-  },
   webpack: (config) => {
     // Allow loading audio files
     config.module.rules.push({

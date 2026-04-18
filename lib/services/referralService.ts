@@ -267,6 +267,22 @@ export function getUserCredits(userId: string): Credits {
 }
 
 /**
+ * Deduct credits from user balance
+ */
+export function deductUserCredits(userId: string, amount: number): Credits {
+  const userCredits = getUserCredits(userId);
+  
+  if (userCredits.balance < amount) {
+    throw new Error('Insufficient credits');
+  }
+  
+  userCredits.balance -= amount;
+  creditsStore.set(userId, userCredits);
+  
+  return userCredits;
+}
+
+/**
  * Initialize referrals for a user
  */
 export function initializeReferrals(userId: string, referrals: Referral[]): void {
