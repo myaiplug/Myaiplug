@@ -1,2 +1,8 @@
+** Tap in with THE MOB!!!**
+www.thebeatmob.com
 
-**Plug in. Create.**
+www.halfscrew.com
+
+www.myaiplug.com
+
+
