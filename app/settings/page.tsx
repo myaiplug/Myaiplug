@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
-type TabType = 'account' | 'privacy' | 'notifications';
+type TabType = 'account' | 'privacy' | 'notifications' | 'integrations';
 
 export default function SettingsPage() {
   const { user, profile, updateProfile, isLoading: authLoading } = useAuth();
@@ -34,6 +34,7 @@ export default function SettingsPage() {
     { id: 'account', label: 'Account', icon: '👤' },
     { id: 'privacy', label: 'Privacy', icon: '🔒' },
     { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'integrations', label: 'Integrations', icon: '🔗' },
   ];
 
   const handleSave = async () => {
@@ -327,6 +328,130 @@ export default function SettingsPage() {
                     <input type="checkbox" checked={false} onChange={() => {}} className="sr-only peer" />
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-myai-primary peer-checked:to-myai-accent"></div>
                   </label>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Integrations Tab */}
+            {activeTab === 'integrations' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-8"
+              >
+                {/* Shopify */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl">🛍️</span>
+                    <div>
+                      <h3 className="font-semibold text-white">Shopify</h3>
+                      <p className="text-sm text-gray-400">Connect your Shopify store to sell products directly.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4 pl-0">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Store Domain
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        placeholder="your-store.myshopify.com"
+                        className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-gray-400 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Set via <code className="text-myai-accent">SHOPIFY_STORE_DOMAIN</code> environment variable.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Admin API Token
+                      </label>
+                      <input
+                        type="password"
+                        disabled
+                        placeholder="••••••••••••••••"
+                        className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-gray-400 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Set via <code className="text-myai-accent">SHOPIFY_ADMIN_API_KEY</code> environment variable.{' '}
+                        <a
+                          href="https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/admin-api-access-tokens"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-myai-accent"
+                        >
+                          How to get your token ↗
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-white/10" />
+
+                {/* Printify */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl">🖨️</span>
+                    <div>
+                      <h3 className="font-semibold text-white">Printify</h3>
+                      <p className="text-sm text-gray-400">Connect Printify to create and fulfill print-on-demand products.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        API Key
+                      </label>
+                      <input
+                        type="password"
+                        disabled
+                        placeholder="••••••••••••••••"
+                        className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-gray-400 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Set via <code className="text-myai-accent">PRINTIFY_API_KEY</code> environment variable.{' '}
+                        <a
+                          href="https://printify.com/app/account/connections"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-myai-accent"
+                        >
+                          Get your API key ↗
+                        </a>
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Shop ID
+                      </label>
+                      <input
+                        type="text"
+                        disabled
+                        placeholder="e.g. 12345678"
+                        className="w-full px-4 py-3 bg-myai-bg-dark/50 border border-white/10 rounded-lg text-gray-400 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Set via <code className="text-myai-accent">PRINTIFY_SHOP_ID</code> environment variable.
+                        Your Shop ID is visible in your Printify dashboard URL.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">ℹ️</span>
+                    <p className="text-sm text-blue-300/80">
+                      Credentials are managed via environment variables for security.
+                      Once configured, visit the{' '}
+                      <a href="/dashboard/store" className="underline hover:text-blue-200">
+                        Store dashboard
+                      </a>{' '}
+                      to sync and publish products.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}
